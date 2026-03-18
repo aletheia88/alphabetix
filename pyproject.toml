@@ -15,7 +15,7 @@ authors = [
     { name = "Jan Funke", email = "jan.funke@fht.org" },
 ]
 dynamic = ["version"]
-dependencies = ["jax"]
+dependencies = ["jax", "equinox"]
 
 [project.optional-dependencies]
 dev = ["pre-commit", "pytest", "pytest-cov", "ruff", "twine", "build"]
