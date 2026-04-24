@@ -30,9 +30,10 @@ class NetworkModel(Module):
         self.neurons = neurons
         self.num_exc = num_exc
         self.num_pv = num_pv
-        tau_som = 11.8 / 1000
-        tau_pv = 3.1 / 1000
+        self.num_som = num_som
         tau_exc = 2 / 1000
+        tau_pv = 3.1 / 1000
+        tau_som = 11.8 / 1000
         # self.tau_m: (num_neurons,)
         # neuron ordering: Exc -> PV -> SOM
         self.tau_m = jnp.concatenate(
