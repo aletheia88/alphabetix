@@ -11,37 +11,43 @@ class NetworkModel(Module):
     connectivity: jax.Array  # (num_neurons, num_neurons)
 
     def step(self, neurons, input_activations, dt):
-        activations, currents = self._compute_activations_and_currents(
-            neurons, input_activations, dt
+        exc_activations, inh_activations, exc_currents, inh_currents = (
+            self._compute_activations_and_currents(neurons, input_activations, dt)
         )
-        next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, None))(
-            neurons, activations, currents, dt
+        next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, 0, 0, None))(
+            neurons, exc_activations, inh_activations, exc_currents, inh_currents, dt
         )
         return next_neurons
 
     def _compute_activations_and_currents(self, neurons, input_activations, dt):
-        # update activations according to connectivity
-        # TODO: tau should be synaptic decay time constant (neuron-type
-        # specific) not the generic membrane decay time constant
         exc_presynaptic_neurons = neurons.sign > 0
         inh_presynaptic_neurons = neurons.sign < 0
-
-        network_activations = (
-            1 - dt / neurons.tau_synapse
-        ) * neurons.activation + self.connectivity @ (neurons.spike * neurons.sign)
 
         exc_connectivity = self.connectivity * exc_presynaptic_neurons[None, :]
         inh_connectivity = self.connectivity * inh_presynaptic_neurons[None, :]
 
-        exc_current = (
-            exc_connectivity
-            @ (network_activations + input_activations)
-            * (neurons.voltage - Constants.exc_reversal_potential)
+        # activation sources are excitatory neurons
+        exc_activations = (
+            1 - dt / neurons.tau_synapse
+        ) * neurons.exc_activation + exc_connectivity @ neurons.spike
+
+        # activation sources are inhibitory neurons
+        inh_activations = (
+            1 - dt / neurons.tau_synapse
+        ) * neurons.inh_activation + inh_connectivity @ neurons.spike
+
+        # currents from (presynaptic) excitatory neurons
+        exc_currents = (exc_activations + input_activations) * (
+            neurons.voltage - Constants.exc_reversal_potential
         )
-        inh_current = (
-            inh_connectivity
-            @ network_activations
-            * (neurons.voltage - Constants.inh_reversal_potential)
+        # currents from (presynaptic) inhibitory neurons
+        inh_currents = (inh_activations + input_activations) * (
+            neurons.voltage - Constants.inh_reversal_potential
         )
 
-        return network_activations, exc_current + inh_current
+        return (
+            exc_activations,
+            inh_activations,
+            exc_currents,
+            inh_currents,
+        )
