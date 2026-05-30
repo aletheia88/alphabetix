@@ -19,6 +19,7 @@ dependencies = [
     "jax",
     "equinox",
     "matplotlib>=3.10.9",
+    "h5py>=3.16.0",
 ]
 
 [project.optional-dependencies]

@@ -18,28 +18,24 @@ class NeuronModel(Module):
     position: jax.Array
     sign: int  # +1 for excitatory, -1 for inhibitory
     tau_membrane: float  # membrane decay time constant, ms
-    tau_synapse: float  # synaptic decay time constant, ms
+    # tau_synapse: float  # synaptic decay time constant, ms
+    reversal_potential: float
 
     # state of neuron
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
-    exc_activation: jnp.float32 = 0.0
-    inh_activation: jnp.float32 = 0.0
+    activation: jnp.float32 = 0.0
     current: jnp.float32 = 0.0
-    exc_current: jnp.float32 = 0.0
-    inh_current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
 
     @classmethod
     def update(
         self,
         neuron,
-        exc_activation,
-        inh_activation,
-        exc_current,
-        inh_current,
+        activation,
+        current,
         dt,
     ):
-        current = exc_current + inh_current
+        # current = exc_current + inh_current
         c_m = Constants.membrane_capacitance
 
         voltage_pre_spike = (
@@ -56,10 +52,7 @@ class NeuronModel(Module):
 
         return neuron.replace(
             spike=spike,
-            exc_activation=exc_activation,
-            inh_activation=inh_activation,
+            activation=activation,
             current=current,
-            exc_current=exc_current,
-            inh_current=inh_current,
             voltage=voltage,
         )
