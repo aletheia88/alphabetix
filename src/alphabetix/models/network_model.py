@@ -13,12 +13,23 @@ class NetworkModel(Module):
     synapse_taus: jax.Array  # (num_neurons, num_neurons)
     synapse_activations: jax.Array  # (num_neurons, num_neurons)
 
-    def step(self, neurons, input_activations, dt):
-        next_network, activations, currents = self._compute_activations_and_currents(
-            neurons, input_activations, dt
-        )
-        next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, None))(
-            neurons, activations, currents, dt
+    def step(self, neurons, input_currents, dt):
+        (
+            next_network,
+            activations,
+            internal_exc_currents,
+            input_exc_currents,
+            exc_currents,
+            inh_currents,
+        ) = self._compute_activations_and_currents(neurons, input_currents, dt)
+        next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, 0, 0, 0, None))(
+            neurons,
+            activations,
+            internal_exc_currents,
+            input_exc_currents,
+            exc_currents,
+            inh_currents,
+            dt,
         )
         return next_network, next_neurons
 
@@ -33,18 +44,34 @@ class NetworkModel(Module):
         exc_activations = jnp.sum(exc_synapse_activations, axis=1)
         inh_activations = jnp.sum(inh_synapse_activations, axis=1)
 
-        exc_currents = (exc_activations + input_activations) * (
+        activations = exc_activations + inh_activations
+
+        # exc_currents = (exc_activations + input_activations) * (
+        #     neurons.voltage - Constants.exc_reversal_potential
+        # )
+        internal_exc_currents = exc_activations * (
             neurons.voltage - Constants.exc_reversal_potential
         )
+        input_exc_currents = input_activations * (
+            neurons.voltage - Constants.exc_reversal_potential
+        )
+        # input_exc_currents = input_currents
+        exc_currents = internal_exc_currents + input_exc_currents
+
         inh_currents = (inh_activations) * (
             neurons.voltage - Constants.inh_reversal_potential
         )
-        currents = exc_currents + inh_currents
-
-        activations = exc_activations + inh_activations
+        # currents = exc_currents + inh_currents
 
         next_network = self.replace(
             synapse_activations=next_synapse_activations,
         )
 
-        return next_network, activations, currents
+        return (
+            next_network,
+            activations,
+            internal_exc_currents,
+            input_exc_currents,
+            exc_currents,
+            inh_currents,
+        )

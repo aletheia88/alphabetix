@@ -25,6 +25,10 @@ class NeuronModel(Module):
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
     activation: jnp.float32 = 0.0
     current: jnp.float32 = 0.0
+    internal_exc_current: jnp.float32 = 0.0
+    input_exc_current: jnp.float32 = 0.0
+    exc_current: jnp.float32 = 0.0
+    inh_current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
 
     @classmethod
@@ -32,11 +36,15 @@ class NeuronModel(Module):
         self,
         neuron,
         activation,
-        current,
+        internal_exc_current,
+        input_exc_current,
+        exc_current,
+        inh_current,
         dt,
     ):
-        # current = exc_current + inh_current
         c_m = Constants.membrane_capacitance
+
+        current = exc_current + inh_current
 
         voltage_pre_spike = (
             neuron.voltage
@@ -54,5 +62,9 @@ class NeuronModel(Module):
             spike=spike,
             activation=activation,
             current=current,
+            internal_exc_current=internal_exc_current,
+            input_exc_current=input_exc_current,
+            exc_current=exc_current,
+            inh_current=inh_current,
             voltage=voltage,
         )
