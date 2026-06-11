@@ -8,14 +8,14 @@ def run_simulation(
     network: NetworkModel,
     neurons: NeuronModel,
     dt: float,
-    input_activations: jax.Array,  # precomputed from task
+    inputs: jax.Array,  # precomputed from task
 ):
-    def scan_fn(carry, input_activations):
+    def scan_fn(carry, inputs):
         network, neurons = carry
 
         neural_network, neurons = network.step(
             neurons,
-            input_activations,
+            inputs,
             dt,
         )
         next_carry = (neural_network, neurons)
@@ -28,7 +28,7 @@ def run_simulation(
     _, neurons = jax.lax.scan(
         scan_fn,
         init_carry,
-        input_activations,
+        inputs,
     )
 
     # add initial neurons to all other neurons returned from scan
