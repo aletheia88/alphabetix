@@ -6,12 +6,19 @@ from ..utils import straight_through_threshold
 
 
 class Constants:
+    # leaky-integrate-fire model parameters
     spiking_threshold: jnp.float32 = -50.0  # mV
     reset_voltage: jnp.float32 = -60.0  # mV
     exc_reversal_potential: jnp.float32 = 0.0  # mV
     inh_reversal_potential: jnp.float32 = -70.0  # mV
     leaky_reversal_potential: jnp.float32 = -70.0  # mV
     membrane_capacitance: jnp.float32 = 200.0  # pF
+
+    # short-term plasticity parameters (Mongillo et al., 2008)
+    u_total: jnp.float32 = 0.3
+    x_max: jnp.float32 = 1.0
+    tau_f: jnp.float32 = 1600  # msec
+    tau_d: jnp.float32 = 50  # msec
 
 
 class NeuronModel(Module):
@@ -25,11 +32,13 @@ class NeuronModel(Module):
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
     activation: jnp.float32 = 0.0
     current: jnp.float32 = 0.0
-    internal_exc_current: jnp.float32 = 0.0
-    input_exc_current: jnp.float32 = 0.0
+    internal_exc_current: jnp.float32 = 0.0  # remove
+    input_exc_current: jnp.float32 = 0.0  # remove
     exc_current: jnp.float32 = 0.0
     inh_current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
+    utilization: jnp.float32 = Constants.u_total  # u
+    resource: jnp.float32 = Constants.x_max  # x
 
     @classmethod
     def update(
@@ -40,6 +49,8 @@ class NeuronModel(Module):
         input_exc_current,
         exc_current,
         inh_current,
+        utilization,
+        resource,
         dt,
     ):
         c_m = Constants.membrane_capacitance
@@ -67,4 +78,6 @@ class NeuronModel(Module):
             exc_current=exc_current,
             inh_current=inh_current,
             voltage=voltage,
+            utilization=utilization,
+            resource=resource,
         )
