@@ -27,6 +27,7 @@ class NeuronModel(Module):
     tau_membrane: float  # membrane decay time constant, ms
     # tau_synapse: float  # synaptic decay time constant, ms
     reversal_potential: float
+    tau_refractory: float  # msec
 
     # state of neuron
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
@@ -37,6 +38,9 @@ class NeuronModel(Module):
     exc_current: jnp.float32 = 0.0
     inh_current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
+
+    refractory_time_remaining: jnp.float32 = 0.0  # msec
+
     utilization: jnp.float32 = Constants.u_total  # u
     resource: jnp.float32 = Constants.x_max  # x
 
@@ -57,17 +61,31 @@ class NeuronModel(Module):
 
         current = exc_current + inh_current
 
+        is_refractory = neuron.refractory_time_remaining > 0.0
+
         voltage_pre_spike = (
             neuron.voltage
             - (dt / neuron.tau_membrane)
             * (neuron.voltage - Constants.leaky_reversal_potential)
             - (dt / c_m) * current
         )
-        spike = straight_through_threshold(
+        candidate_spike = straight_through_threshold(
             neuron.voltage,
             Constants.spiking_threshold,
         )
-        voltage = (1.0 - spike) * (voltage_pre_spike) + spike * Constants.reset_voltage
+        spike = candidate_spike * (1.0 - is_refractory.astype(jnp.float32))
+        # update refractory period timer
+        refractory_time_remaining = jnp.where(
+            spike > 0.0,
+            neuron.tau_refractory,
+            jnp.maximum(0.0, neuron.refractory_time_remaining - dt),
+        )
+        should_reset = jnp.logical_or(is_refractory, spike > 0.0)
+        voltage = jnp.where(
+            should_reset,
+            Constants.reset_voltage,
+            voltage_pre_spike,
+        )
 
         return neuron.replace(
             spike=spike,
@@ -78,6 +96,7 @@ class NeuronModel(Module):
             exc_current=exc_current,
             inh_current=inh_current,
             voltage=voltage,
+            refractory_time_remaining=refractory_time_remaining,
             utilization=utilization,
             resource=resource,
         )
