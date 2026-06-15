@@ -12,6 +12,7 @@ class NetworkModel(Module):
     connectivity: jax.Array  # (num_neurons, num_neurons)
     synapse_taus: jax.Array  # (num_neurons, num_neurons)
     synapse_activations: jax.Array  # (num_neurons, num_neurons)
+    spike_buffer: jax.Array  # (delay_steps, num_neurons)
 
     def step(self, neurons, inputs, dt):
         (
@@ -47,7 +48,11 @@ class NetworkModel(Module):
         last_u = neurons.utilization
         last_x = neurons.resource
 
-        plain_increment = self.connectivity * neurons.spike
+        arriving_spikes, next_spike_buffer = self._get_delayed_spikes_and_update_buffer(
+            neurons.spike
+        )
+
+        plain_increment = self.connectivity * arriving_spikes
         stp_increment = plain_increment * (last_u * last_x)
         # short-term plasticity only applies to exc-exc connections
         increment = jnp.where(ee_mask, stp_increment, plain_increment)
@@ -60,7 +65,8 @@ class NetworkModel(Module):
         inh_synapse_activations = next_synapse_activations * inh_mask
 
         # update STP variables
-        fired_exc = neurons.spike * exc_mask
+        fired_exc = arriving_spikes * exc_mask
+
         u_temp = last_u + dt * (Constants.u_total - last_u) / Constants.tau_f
         u = u_temp + 0.75 * (1 - u_temp) * fired_exc
         x_temp = last_x + dt * (1 - last_x) / Constants.tau_d
@@ -88,6 +94,7 @@ class NetworkModel(Module):
 
         next_network = self.replace(
             synapse_activations=next_synapse_activations,
+            spike_buffer=next_spike_buffer,
         )
 
         return (
@@ -100,3 +107,15 @@ class NetworkModel(Module):
             u,
             x,
         )
+
+    def _get_delayed_spikes_and_update_buffer(self, current_spikes):
+        arriving_spikes = self.spike_buffer[0]
+        # update spike buffer
+        next_spike_buffer = jnp.concatenate(
+            [
+                self.spike_buffer[1:],
+                current_spikes[None, :],
+            ],
+            axis=0,
+        )
+        return arriving_spikes, next_spike_buffer
