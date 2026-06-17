@@ -33,10 +33,6 @@ class NeuronModel(Module):
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
     activation: jnp.float32 = 0.0
     current: jnp.float32 = 0.0
-    internal_exc_current: jnp.float32 = 0.0  # remove
-    input_exc_current: jnp.float32 = 0.0  # remove
-    exc_current: jnp.float32 = 0.0
-    inh_current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
 
     refractory_time_remaining: jnp.float32 = 0.0  # msec
@@ -49,17 +45,12 @@ class NeuronModel(Module):
         self,
         neuron,
         activation,
-        internal_exc_current,
-        input_exc_current,
-        exc_current,
-        inh_current,
+        current,
         utilization,
         resource,
         dt,
     ):
         c_m = Constants.membrane_capacitance
-
-        current = exc_current + inh_current
 
         is_refractory = neuron.refractory_time_remaining > 0.0
 
@@ -91,10 +82,6 @@ class NeuronModel(Module):
             spike=spike,
             activation=activation,
             current=current,
-            internal_exc_current=internal_exc_current,
-            input_exc_current=input_exc_current,
-            exc_current=exc_current,
-            inh_current=inh_current,
             voltage=voltage,
             refractory_time_remaining=refractory_time_remaining,
             utilization=utilization,

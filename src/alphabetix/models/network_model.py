@@ -18,29 +18,21 @@ class NetworkModel(Module):
         (
             next_network,
             activations,
-            internal_exc_currents,
-            input_exc_currents,
-            exc_currents,
-            inh_currents,
+            currents,
             utilization,
             resource,
         ) = self._compute_activations_and_currents(neurons, inputs, dt)
-        next_neurons = jax.vmap(
-            NeuronModel.update, in_axes=(0, 0, 0, 0, 0, 0, 0, 0, None)
-        )(
+        next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, 0, 0, None))(
             neurons,
             activations,
-            internal_exc_currents,
-            input_exc_currents,
-            exc_currents,
-            inh_currents,
+            currents,
             utilization,
             resource,
             dt,
         )
         return next_network, next_neurons
 
-    def _compute_activations_and_currents(self, neurons, input_activations, dt):
+    def _compute_activations_and_currents(self, neurons, input_currents, dt):
         exc_mask = neurons.sign > 0
         inh_mask = neurons.sign < 0
         ee_mask = exc_mask[:, None] & exc_mask[None, :]
@@ -52,7 +44,8 @@ class NetworkModel(Module):
             neurons.spike
         )
 
-        plain_increment = self.connectivity * arriving_spikes
+        # plain_increment = self.connectivity * arriving_spikes
+        plain_increment = self.connectivity * neurons.spike
         stp_increment = plain_increment * (last_u * last_x)
         # short-term plasticity only applies to exc-exc connections
         increment = jnp.where(ee_mask, stp_increment, plain_increment)
@@ -65,7 +58,8 @@ class NetworkModel(Module):
         inh_synapse_activations = next_synapse_activations * inh_mask
 
         # update STP variables
-        fired_exc = arriving_spikes * exc_mask
+        # fired_exc = arriving_spikes * exc_mask
+        fired_exc = neurons.spike * exc_mask
 
         u_temp = last_u + dt * (Constants.u_total - last_u) / Constants.tau_f
         u = u_temp + 0.75 * (1 - u_temp) * fired_exc
@@ -76,21 +70,14 @@ class NetworkModel(Module):
         inh_activations = jnp.sum(inh_synapse_activations, axis=1)
 
         activations = exc_activations + inh_activations
-        # exc_currents = (exc_activations + input_activations) * (
-        #     neurons.voltage - Constants.exc_reversal_potential
-        # )
-        internal_exc_currents = exc_activations * (
-            neurons.voltage - Constants.exc_reversal_potential
-        )
-        input_exc_currents = input_activations * (
-            neurons.voltage - Constants.exc_reversal_potential
-        )
-        exc_currents = internal_exc_currents + input_exc_currents
 
-        inh_currents = (inh_activations) * (
+        exc_currents = exc_activations * (
+            neurons.voltage - Constants.exc_reversal_potential
+        )
+        inh_currents = inh_activations * (
             neurons.voltage - Constants.inh_reversal_potential
         )
-        # currents = exc_currents + inh_currents
+        currents = exc_currents + inh_currents + input_currents
 
         next_network = self.replace(
             synapse_activations=next_synapse_activations,
@@ -100,10 +87,7 @@ class NetworkModel(Module):
         return (
             next_network,
             activations,
-            internal_exc_currents,
-            input_exc_currents,
-            exc_currents,
-            inh_currents,
+            currents,
             u,
             x,
         )

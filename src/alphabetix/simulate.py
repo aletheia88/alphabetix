@@ -24,7 +24,6 @@ def run_simulation(
         return next_carry, next_state
 
     init_carry = (network, neurons)
-    # _, neurons = jax.lax.scan(scan_fn, init_carry, input_activations)
     _, neurons = jax.lax.scan(
         scan_fn,
         init_carry,
