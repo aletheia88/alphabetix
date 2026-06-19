@@ -24,9 +24,8 @@ class Constants:
 class NeuronModel(Module):
     position: jax.Array
     sign: int  # +1 for excitatory, -1 for inhibitory
+    type: int  # 1: exc 2: som 3: pv 4: vip
     tau_membrane: float  # membrane decay time constant, ms
-    # tau_synapse: float  # synaptic decay time constant, ms
-    reversal_potential: float
     tau_refractory: float  # msec
 
     # state of neuron

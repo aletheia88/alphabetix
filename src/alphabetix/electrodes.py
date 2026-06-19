@@ -10,52 +10,36 @@ class Electrode(eqx.Module):
     position: jax.Array  # shape: (2,)
     measurement_radius: jnp.float32
 
+    def __init__(self, position, measurement_radius):
+        self.position = position
+        self.measurement_radius = measurement_radius
+
+    def count_measured_neurons(self, measured_neurons):
+        return jnp.sum(measured_neurons)
+
     def measure_lfp(self, neurons):
-        # neuron_positions: (num_neurons, 2)
-        neuron_positions = neurons.position[0, :, :]
-        distances = jnp.linalg.norm(
-            neuron_positions - self.position[None, :],
-            axis=1,
-        )
-        measured_neurons = (distances < self.measurement_radius) & (
-            neurons.sign[0, :] > 0
-        )
-        num_measured_neurons = jnp.sum(measured_neurons)
-        # LFP-proxy per timestep:
-        # the mean voltage at timestep t among excitatory neurons located
-        # within the electrode's measurement radius
-        lfp_readout = (
+        measured_exc_neurons = self._find_neurons(neurons, neuron_type=1)
+        num_measured_exc_neurons = self.count_measured_neurons(measured_exc_neurons)
+        return (
             jnp.sum(
-                neurons.voltage * measured_neurons[None, :],
+                neurons.voltage * measured_exc_neurons[None, :],
+                axis=1,
+            )
+            / num_measured_exc_neurons
+        )
+
+    def measure_population_firing_rate(self, neurons, neuron_type, dt):
+        firing_rates, rate_timepoints = self._single_neuron_firing_rates(neurons, dt)
+
+        measured_neurons = self._find_neurons(neurons, neuron_type)
+        num_measured_neurons = self.count_measured_neurons(measured_neurons)
+        return (
+            jnp.sum(
+                firing_rates * measured_neurons[None, :],
                 axis=1,
             )
             / num_measured_neurons
-        )
-
-        return lfp_readout, num_measured_neurons
-
-    def measure_single_neuron_spike_rates(self, neurons, dt):
-        # NOTE: in our simulation, information of single neurons (e.g.,
-        # spiking) does not need to be attained through the sorting algorithm
-        # using the electrode measurements, since we just know;
-        # that means, this function does not have to be under the `Electrode`
-        # class
-        num_timesteps = neurons.spike.shape[0]
-        timepoints = jnp.arange(num_timesteps) * dt / 1000.0
-        # rate_times: sec
-        rates, rate_times = rate(
-            neurons.spike.astype(bool),
-            method="density",
-            lims=[timepoints[0], timepoints[-1]],
-            kernel="gaussian",
-            width=50e-3,
-            step=10e-3,
-            timepts=timepoints,
-            axis=0,
-        )
-        # TODO: perhaps get population firing rates from averaging ensemble of
-        # single neurons?
-        return rates, rate_times
+        ), rate_timepoints
 
     def measure_wavelet_spectrogram(self, neurons, rhythm, dt):
         sampling_rate = 1000.0 / dt
@@ -94,3 +78,35 @@ class Electrode(eqx.Module):
         )
 
         return spectrum_normalized, frequencies, spectrum_timepoints
+
+    def _single_neuron_firing_rates(self, neurons, dt):
+        num_timesteps = neurons.spike.shape[0]
+        timepoints = jnp.arange(num_timesteps) * dt / 1000.0
+        # rate_timepoints: sec
+        rates, rate_timepoints = rate(
+            neurons.spike.astype(bool),
+            method="density",
+            lims=[timepoints[0], timepoints[-1]],
+            kernel="gaussian",
+            width=50e-3,
+            step=10e-3,
+            timepts=timepoints,
+            axis=0,
+        )
+        return rates, rate_timepoints
+
+    def _find_neurons(self, neurons, neuron_type):
+        positions = neurons.position
+        if positions.ndim == 2:
+            neuron_positions = positions
+        elif positions.ndim == 3:
+            # neuron_positions: (num_timesteps, num_neurons, 2)
+            neuron_positions = neurons.position[0, :, :]
+
+        distances = jnp.linalg.norm(
+            neuron_positions - self.position[None, :],
+            axis=1,
+        )
+        return (distances < self.measurement_radius) & (
+            neurons.type[0, :] == neuron_type
+        )
