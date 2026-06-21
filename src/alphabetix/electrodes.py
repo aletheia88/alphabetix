@@ -41,14 +41,17 @@ class Electrode(eqx.Module):
             / num_measured_neurons
         ), rate_timepoints
 
-    def measure_wavelet_spectrogram(self, neurons, rhythm, dt):
+    def compute_wavelet_spectrogram(self, neurons, rhythm, dt):
         sampling_rate = 1000.0 / dt
 
         if rhythm == "alpha/beta":
             rhythm_frequencies = jnp.arange(8, 30, 2)
-
-        if rhythm == "gamma":
+        elif rhythm == "gamma":
             rhythm_frequencies = jnp.arange(30, 150, 2)
+        elif rhythm == "theta":
+            rhythm_frequencies = jnp.arange(4, 8, 1)
+        else:
+            raise ValueError(f"Unknown rhythm: {rhythm}")
 
         # steps to compute spectrogram
         # 1. measure LFP (remove evoked potentials if num_trials > 0)
@@ -56,14 +59,14 @@ class Electrode(eqx.Module):
         # 3. normalized spectrum by multiplying frequency (since high freq -> low power)
 
         # lfp: (num_timesteps,)
-        lfp, _ = self.measure_lfp(neurons)
+        lfp = self.measure_lfp(neurons)
 
         # spectra: (num_frequency_bands, num_output_timepoints)
         spectrum, frequencies, spectrum_timepoints = wavelet.wavelet_spectrogram(
             lfp,
             smp_rate=sampling_rate,
             axis=0,
-            data_type="spike",
+            data_type="lfp",
             spec_type="power",
             freqs=rhythm_frequencies,
             wavelet="morlet",
