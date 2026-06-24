@@ -20,6 +20,8 @@ dependencies = [
     "equinox",
     "matplotlib>=3.10.9",
     "h5py>=3.16.0",
+    "spynal>=0.1.5",
+    "psutil>=7.2.2",
 ]
 
 [project.optional-dependencies]
