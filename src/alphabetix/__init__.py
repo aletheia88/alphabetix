@@ -8,9 +8,11 @@ from .models import (
     Timeline,
 )
 from .simulate import run_simulation
+from .electrodes import Electrode
 
 __all__ = [
     "DecoderModel",
+    "Electrode",
     "InputModel",
     "NetworkModel",
     "NeuronModel",
