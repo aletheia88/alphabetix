@@ -2,13 +2,13 @@
 import jax
 import jax.numpy as jnp
 
-from .models import NetworkModel, NeuronModel
+from .models import NetworkModel, Neuron
 from .record import Probes
 
 
 def run_simulation(
     network: NetworkModel,
-    neurons: NeuronModel,
+    neurons: Neuron,
     dt: float,
     inputs: jax.Array,  # precomputed from task
     probes: Probes | None = None,

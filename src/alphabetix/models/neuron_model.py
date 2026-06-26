@@ -1,48 +1,14 @@
-import jax
 import jax.numpy as jnp
 
-from ..module import Module
 from ..utils import straight_through_threshold
+from .constants import Constants
 
 
-class Constants:
-    # leaky-integrate-fire model parameters
-    spiking_threshold: jnp.float32 = -50.0  # mV
-    reset_voltage: jnp.float32 = -60.0  # mV
-    exc_reversal_potential: jnp.float32 = 0.0  # mV
-    inh_reversal_potential: jnp.float32 = -70.0  # mV
-    leaky_reversal_potential: jnp.float32 = -70.0  # mV
-    membrane_capacitance: jnp.float32 = 200.0  # pF
-
-    # short-term plasticity parameters (Mongillo et al., 2008)
-    u_total: jnp.float32 = 0.3
-    x_max: jnp.float32 = 1.0
-    tau_f: jnp.float32 = 1600  # msec
-    tau_d: jnp.float32 = 50  # msec
-
-
-class NeuronModel(Module):
-    position: jax.Array
-    sign: int  # +1 for excitatory, -1 for inhibitory
-    type: int  # 1: exc 2: som 3: pv 4: vip
-    tau_membrane: float  # membrane decay time constant, ms
-    tau_refractory: float  # msec
-
-    # state of neuron
-    spike: jnp.float32 = 0.0  # either 1.0 or 0.0
-    activation: jnp.float32 = 0.0
-    current: jnp.float32 = 0.0
-    voltage: jnp.float32 = -60.0
-
-    refractory_time_remaining: jnp.float32 = 0.0  # msec
-
-    utilization: jnp.float32 = Constants.u_total  # u
-    resource: jnp.float32 = Constants.x_max  # x
-
+class NeuronModel:
     @classmethod
     def update(
         self,
-        neuron,
+        neuron,  # the state
         activation,
         current,
         utilization,
