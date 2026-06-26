@@ -2,7 +2,8 @@ import jax
 import jax.numpy as jnp
 
 from ..module import Module
-from .neuron_model import NeuronModel, Constants
+from .constants import Constants
+from .neuron_model import NeuronModel
 
 
 class NetworkModel(Module):

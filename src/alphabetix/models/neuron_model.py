@@ -33,7 +33,7 @@ class NeuronModel:
         # update refractory period timer
         refractory_time_remaining = jnp.where(
             spike > 0.0,
-            neuron.tau_refractory,
+            Constants.tau_refractory,
             jnp.maximum(0.0, neuron.refractory_time_remaining - dt),
         )
         should_reset = jnp.logical_or(is_refractory, spike > 0.0)
