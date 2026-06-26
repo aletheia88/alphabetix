@@ -13,7 +13,6 @@ class NetworkModel(Module):
     connectivity: jax.Array  # (num_neurons, num_neurons)
     synapse_taus: jax.Array  # (num_neurons, num_neurons)
     synapse_activations: jax.Array  # (num_neurons, num_neurons)
-    spike_buffer: jax.Array  # (delay_steps, num_neurons)
 
     def step(self, neurons, inputs, dt):
         (
@@ -40,10 +39,6 @@ class NetworkModel(Module):
 
         last_u = neurons.utilization
         last_x = neurons.resource
-
-        arriving_spikes, next_spike_buffer = self._get_delayed_spikes_and_update_buffer(
-            neurons.spike
-        )
 
         # plain_increment = self.connectivity * arriving_spikes
         plain_increment = self.connectivity * neurons.spike
@@ -82,7 +77,6 @@ class NetworkModel(Module):
 
         next_network = self.replace(
             synapse_activations=next_synapse_activations,
-            spike_buffer=next_spike_buffer,
         )
 
         return (
@@ -92,15 +86,3 @@ class NetworkModel(Module):
             u,
             x,
         )
-
-    def _get_delayed_spikes_and_update_buffer(self, current_spikes):
-        arriving_spikes = self.spike_buffer[0]
-        # update spike buffer
-        next_spike_buffer = jnp.concatenate(
-            [
-                self.spike_buffer[1:],
-                current_spikes[None, :],
-            ],
-            axis=0,
-        )
-        return arriving_spikes, next_spike_buffer
