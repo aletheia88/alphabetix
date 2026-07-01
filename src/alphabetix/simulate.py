@@ -1,28 +1,29 @@
 import jax
 import jax.numpy as jnp
 
-from .models import NetworkModel, Network, Neuron
+from .models import Model
 from .record import Probes
 
 
 def run_simulation(
-    network_model: NetworkModel,
-    network: Network,
-    neurons: Neuron,
+    model: Model,
     dt: float,
-    inputs: jax.Array,  # precomputed from task
+    inputs: jax.Array,  # delete later
     probes: Probes | None = None,
 ):
     if probes is None:
         probes = Probes()  # empty
 
+    # compute inputs
+    # inputs = model.input_model.compute_activations(dt)
+
     # record initial measurement
-    initial_measurements = probes.process(neurons)
+    initial_measurements = probes.process(model.initial_neurons)
 
     def scan_fn(carry, input_t):
         network, neurons = carry
 
-        next_network, next_neurons = network_model.step(
+        next_network, next_neurons = model.network_model.step(
             neurons,
             network,
             input_t,
@@ -35,7 +36,7 @@ def run_simulation(
 
         return next_carry, measurement_t
 
-    init_carry = (network, neurons)
+    init_carry = (model.initial_network, model.initial_neurons)
     _, measurements = jax.lax.scan(
         scan_fn,
         init_carry,
