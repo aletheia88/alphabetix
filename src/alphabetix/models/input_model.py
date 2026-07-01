@@ -1,3 +1,4 @@
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 
@@ -5,10 +6,16 @@ from .sensory_model import SensoryModel
 from .timeline import Timeline
 from .topdown_model import TopDownModel
 
-# from ..module import Module
 
+class InputModel(eqx.Module):
+    timeline: Timeline = eqx.field(static=True)
+    num_cues: int = eqx.field(static=True)
+    num_categories: int = eqx.field(static=True)
+    num_exc_neurons: int = eqx.field(static=True)
+    num_inh_neurons: int = eqx.field(static=True)
+    num_neurons: int = eqx.field(static=True)
 
-class InputModel:
+    # component models
     sensory_model: SensoryModel
     topdown_model: TopDownModel
 
