@@ -11,17 +11,15 @@ class NetworkModel(Module):
     # columns: pre-synaptic neurons
     # connectivity: conductance weights, unit nS
     connectivity: jax.Array  # (num_neurons, num_neurons)
-    synapse_taus: jax.Array  # (num_neurons, num_neurons)
-    synapse_activations: jax.Array  # (num_neurons, num_neurons)
 
-    def step(self, neurons, inputs, dt):
+    def step(self, neurons, network, inputs, dt):
         (
             next_network,
             activations,
             currents,
             utilization,
             resource,
-        ) = self._compute_activations_and_currents(neurons, inputs, dt)
+        ) = self._compute_activations_and_currents(neurons, network, inputs, dt)
         next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, 0, 0, None))(
             neurons,
             activations,
@@ -32,7 +30,7 @@ class NetworkModel(Module):
         )
         return next_network, next_neurons
 
-    def _compute_activations_and_currents(self, neurons, input_currents, dt):
+    def _compute_activations_and_currents(self, neurons, network, input_currents, dt):
         exc_mask = neurons.sign > 0
         inh_mask = neurons.sign < 0
         ee_mask = exc_mask[:, None] & exc_mask[None, :]
@@ -47,8 +45,8 @@ class NetworkModel(Module):
         increment = jnp.where(ee_mask, stp_increment, plain_increment)
 
         next_synapse_activations = (
-            1 - dt / self.synapse_taus
-        ) * self.synapse_activations + increment
+            1 - dt / network.synapse_taus
+        ) * network.synapse_activations + increment
 
         exc_synapse_activations = next_synapse_activations * exc_mask
         inh_synapse_activations = next_synapse_activations * inh_mask
@@ -75,7 +73,7 @@ class NetworkModel(Module):
         )
         currents = exc_currents + inh_currents + input_currents
 
-        next_network = self.replace(
+        next_network = network.replace(
             synapse_activations=next_synapse_activations,
         )
 

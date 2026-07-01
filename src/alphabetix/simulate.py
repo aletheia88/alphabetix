@@ -1,13 +1,13 @@
-# from alphabetix.probe import Probes
 import jax
 import jax.numpy as jnp
 
-from .models import NetworkModel, Neuron
+from .models import NetworkModel, Network, Neuron
 from .record import Probes
 
 
 def run_simulation(
-    network: NetworkModel,
+    network_model: NetworkModel,
+    network: Network,
     neurons: Neuron,
     dt: float,
     inputs: jax.Array,  # precomputed from task
@@ -22,8 +22,9 @@ def run_simulation(
     def scan_fn(carry, input_t):
         network, neurons = carry
 
-        next_network, next_neurons = network.step(
+        next_network, next_neurons = network_model.step(
             neurons,
+            network,
             input_t,
             dt,
         )
