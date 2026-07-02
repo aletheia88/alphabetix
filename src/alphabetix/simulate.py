@@ -19,11 +19,13 @@ def run_simulation(
 
     # record initial measurement
     initial_measurements = probes.process(model.initial_neurons)
+    neuron_model = model.neuron_model
 
     def scan_fn(carry, input_t):
         network, neurons = carry
 
         next_network, next_neurons = model.network_model.step(
+            neuron_model,
             neurons,
             network,
             input_t,

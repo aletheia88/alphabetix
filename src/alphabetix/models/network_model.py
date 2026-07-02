@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 
 from ..module import Module
-from .neuron_model import NeuronModel
 
 
 class NetworkModel(Module):
@@ -18,7 +17,7 @@ class NetworkModel(Module):
     exc_reversal_potential: jnp.float32 = Module.static(default=0.0)  # mV
     inh_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
 
-    def step(self, neurons, network, inputs, dt):
+    def step(self, neuron_model, neurons, network, inputs, dt):
         (
             next_network,
             activations,
@@ -26,7 +25,7 @@ class NetworkModel(Module):
             utilization,
             resource,
         ) = self._compute_activations_and_currents(neurons, network, inputs, dt)
-        next_neurons = jax.vmap(NeuronModel.update, in_axes=(0, 0, 0, 0, 0, None))(
+        next_neurons = jax.vmap(neuron_model.update, in_axes=(0, 0, 0, 0, 0, None))(
             neurons,
             activations,
             currents,
