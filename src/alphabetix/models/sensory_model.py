@@ -32,20 +32,3 @@ class SensoryModel(Module):
             )
 
         return self.layer(x)
-
-
-if __name__ == "__main__":
-    key = jax.random.PRNGKey(0)
-
-    model = SensoryModel(
-        num_categories=5,
-        num_neurons=100,
-        key=key,
-    )
-
-    # category index 2 out of 5
-    x = jax.nn.one_hot(2, 5)
-
-    y = model(x)
-    print(y.shape)  # (100,)
-    print(y)

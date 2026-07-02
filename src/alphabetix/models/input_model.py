@@ -60,23 +60,3 @@ class InputModel(Module):
                 topdown_input
             )
         return sensory_inputs + topdown_inputs
-
-
-if __name__ == "__main__":
-    dt = 0.1
-    timeline = Timeline(
-        cue_time=2,
-        delay_time=1,
-        sequence="cba",
-    )
-    num_exc_neurons = 3
-    num_inh_neurons = 7
-    input_model = InputModel(
-        timeline,
-        num_exc_neurons,
-        num_inh_neurons,
-        key=jax.random.PRNGKey(10),
-    )
-    input_activations = input_model.compute_activations(dt)
-    print(f"input activations: {input_activations.shape}")
-    print(input_activations)
