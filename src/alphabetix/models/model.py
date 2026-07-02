@@ -1,18 +1,16 @@
-import equinox as eqx
-import jax
-
+from ..module import Module
 from .input_model import InputModel
 from .network import Network
 from .network_model import NetworkModel
 from .neuron import Neuron
 
 
-class Model(eqx.Module):
+class Model(Module):
     input_model: InputModel
     network_model: NetworkModel
     initial_network: Network
     initial_neurons: Neuron
-    dt: float = eqx.field(static=True)
+    dt: float = Module.static()
 
     def __init__(
         self,

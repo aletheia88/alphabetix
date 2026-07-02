@@ -6,8 +6,8 @@ from ..module import Module
 
 class SensoryModel(Module):
     layer: eqx.nn.Linear
-    num_categories: int = eqx.field(static=True)
-    num_neurons: int = eqx.field(static=True)
+    num_categories: int = Module.static()
+    num_neurons: int = Module.static()
 
     def __init__(
         self,

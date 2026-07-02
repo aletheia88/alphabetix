@@ -6,8 +6,8 @@ from ..module import Module
 
 class TopDownModel(Module):
     layer: eqx.nn.Linear
-    num_cues: int
-    num_neurons: int
+    num_cues: int = Module.static()
+    num_neurons: int = Module.static()
 
     def __init__(
         self,
