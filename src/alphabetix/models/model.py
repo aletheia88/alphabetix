@@ -25,24 +25,3 @@ class Model(Module):
         self.initial_network = initial_network
         self.initial_neurons = initial_neurons
         self.dt = dt
-
-    def partition(self):
-        """Split into into trainable and non-trainable parameters with a custom mask."""
-        return eqx.partition(self, self.trainable_filter())
-
-    def trainable_filter(self):
-        """Return a PyTree mask selecting only desired learnable leaves."""
-        trainable = jax.tree.map(lambda _: False, self)
-
-        input_filter = jax.tree.map(eqx.is_inexact_array, self.input_model)
-        trainable = eqx.tree_at(
-            lambda model: model.input_model,
-            trainable,
-            input_filter,
-        )
-        trainable = eqx.tree_at(
-            lambda model: model.network_model.connectivity,
-            trainable,
-            True,
-        )
-        return trainable
