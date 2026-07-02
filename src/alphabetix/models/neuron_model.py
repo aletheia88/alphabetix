@@ -1,11 +1,18 @@
+import equinox as eqx
 import jax.numpy as jnp
 
+from ..module import Module
 from ..utils import straight_through_threshold
-from .constants import Constants
 
 
-class NeuronModel:
-    @classmethod
+class NeuronModel(Module):
+    membrane_capacitance: jnp.float32 = Module.static(default=200.0)  # pF
+    leaky_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
+    spiking_threshold: jnp.float32 = Module.static(default=-50.0)  # mV
+
+    tau_refractory: jnp.float32 = Module.static(default=2.0)  # msec
+    reset_voltage: jnp.float32 = Module.static(default=-60.0)  # mV
+
     def update(
         self,
         neuron,  # the state
@@ -15,31 +22,31 @@ class NeuronModel:
         resource,
         dt,
     ):
-        c_m = Constants.membrane_capacitance
+        c_m = self.membrane_capacitance
 
         is_refractory = neuron.refractory_time_remaining > 0.0
 
         voltage_pre_spike = (
             neuron.voltage
             - (dt / neuron.tau_membrane)
-            * (neuron.voltage - Constants.leaky_reversal_potential)
+            * (neuron.voltage - self.leaky_reversal_potential)
             - (dt / c_m) * current
         )
         candidate_spike = straight_through_threshold(
             neuron.voltage,
-            Constants.spiking_threshold,
+            self.spiking_threshold,
         )
         spike = candidate_spike * (1.0 - is_refractory.astype(jnp.float32))
         # update refractory period timer
         refractory_time_remaining = jnp.where(
             spike > 0.0,
-            Constants.tau_refractory,
+            self.tau_refractory,
             jnp.maximum(0.0, neuron.refractory_time_remaining - dt),
         )
         should_reset = jnp.logical_or(is_refractory, spike > 0.0)
         voltage = jnp.where(
             should_reset,
-            Constants.reset_voltage,
+            self.reset_voltage,
             voltage_pre_spike,
         )
 

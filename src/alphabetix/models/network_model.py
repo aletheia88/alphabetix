@@ -2,15 +2,21 @@ import jax
 import jax.numpy as jnp
 
 from ..module import Module
-from .constants import Constants
 from .neuron_model import NeuronModel
 
 
 class NetworkModel(Module):
+    # connectivity: conductance weights, unit nS
+    # shape: (num_neurons, num_neurons)
     # rows: post-synaptic neurons
     # columns: pre-synaptic neurons
-    # connectivity: conductance weights, unit nS
-    connectivity: jax.Array  # (num_neurons, num_neurons)
+    connectivity: jax.Array = Module.param()
+
+    u_total: jnp.float32 = Module.static(default=0.3)
+    tau_f: jnp.float32 = Module.static(default=1600)  # msec
+    tau_d: jnp.float32 = Module.static(default=50)  # msec
+    exc_reversal_potential: jnp.float32 = Module.static(default=0.0)  # mV
+    inh_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
 
     def step(self, neurons, network, inputs, dt):
         (
@@ -55,9 +61,9 @@ class NetworkModel(Module):
         # fired_exc = arriving_spikes * exc_mask
         fired_exc = neurons.spike * exc_mask
 
-        u_temp = last_u + dt * (Constants.u_total - last_u) / Constants.tau_f
+        u_temp = last_u + dt * (self.u_total - last_u) / self.tau_f
         u = u_temp + 0.75 * (1 - u_temp) * fired_exc
-        x_temp = last_x + dt * (1 - last_x) / Constants.tau_d
+        x_temp = last_x + dt * (1 - last_x) / self.tau_d
         x = x_temp - u_temp * x_temp * fired_exc
 
         exc_activations = jnp.sum(exc_synapse_activations, axis=1)
@@ -65,12 +71,8 @@ class NetworkModel(Module):
 
         activations = exc_activations + inh_activations
 
-        exc_currents = exc_activations * (
-            neurons.voltage - Constants.exc_reversal_potential
-        )
-        inh_currents = inh_activations * (
-            neurons.voltage - Constants.inh_reversal_potential
-        )
+        exc_currents = exc_activations * (neurons.voltage - self.exc_reversal_potential)
+        inh_currents = inh_activations * (neurons.voltage - self.inh_reversal_potential)
         currents = exc_currents + inh_currents + input_currents
 
         next_network = network.replace(
