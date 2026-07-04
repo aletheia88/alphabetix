@@ -42,7 +42,7 @@ class InputModel(Module):
         )
         self.topdown_model = TopDownModel(self.num_cues, num_inh_neurons, key=key2)
 
-    def compute_activations(self, dt: float):
+    def compute_currents(self, dt: float):
         num_timesteps = int(self.timeline.total_time / dt)
         print(f"number of timesteps: {num_timesteps}")
         sensory_inputs = jnp.zeros((num_timesteps, self.num_neurons), dtype=jnp.float32)

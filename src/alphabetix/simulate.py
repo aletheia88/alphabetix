@@ -7,7 +7,7 @@ from .record import Probes
 
 def run_simulation(
     model: Model,
-    inputs: jax.Array,  # delete later
+    inputs: jax.Array,
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes | None = None,
