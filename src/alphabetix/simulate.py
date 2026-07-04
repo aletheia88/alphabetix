@@ -15,9 +15,6 @@ def run_simulation(
     if probes is None:
         probes = Probes()  # empty
 
-    # compute inputs
-    # inputs = model.input_model.compute_activations(dt)
-
     # record initial measurement
     initial_measurements = probes.process(initial_neurons)
     neuron_model = model.neuron_model
@@ -41,7 +38,7 @@ def run_simulation(
         return next_carry, measurement_t
 
     init_carry = (initial_network, initial_neurons)
-    _, measurements = jax.lax.scan(
+    (final_network, final_neurons), measurements = jax.lax.scan(
         scan_fn,
         init_carry,
         inputs,
@@ -54,4 +51,4 @@ def run_simulation(
         initial_measurements,
         measurements,
     )
-    return measurements
+    return measurements, final_network, final_neurons
