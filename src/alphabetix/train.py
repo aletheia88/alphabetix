@@ -59,6 +59,7 @@ def train_step(
     )
     updates, opt_state = optimizer.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
+    params = _constrain_connectivity(params)
     model = eqx.combine(params, static)
 
     return model, opt_state, loss, batch_log
@@ -73,3 +74,21 @@ def simulation_loss(measurements, final_network, final_neurons):
         neuron_state=final_neurons,
     )
     return loss, batch_log
+
+
+def _constrain_connectivity(
+    params,
+    connection_mask=None,
+    min_value=0.0,
+):
+    connectivity = params.network_model.connectivity
+    connectivity = jnp.maximum(connectivity, min_value)
+
+    if connection_mask is not None:
+        connectivity = connectivity * connection_mask
+
+    return eqx.tree_at(
+        lambda m: m.network_model.connectivity,
+        params,
+        connectivity,
+    )
