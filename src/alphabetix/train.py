@@ -67,7 +67,10 @@ def train_step(
 
 def simulation_loss(measurements, final_network, final_neurons):
     voltages = measurements["voltage"]
-    loss = -voltages.mean()
+    exc_voltages = voltages[:5, :2]
+    inh_voltages = voltages[:5, -1]
+    target_voltage = -50.0
+    loss = jnp.mean((inh_voltages - target_voltage) ** 2)
     batch_log = BatchLog(
         voltages=voltages,
         network_state=final_network,
