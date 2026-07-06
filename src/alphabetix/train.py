@@ -37,7 +37,6 @@ def train_step(
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
-    loss_function,
     optimizer: optax.GradientTransformation,
     opt_state: optax.OptState,
 ):
