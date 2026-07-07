@@ -33,7 +33,7 @@ def run_simulation(
         next_carry = (next_network, next_neurons)
 
         # record measurement
-        measurement_t = probes.process(neurons)
+        measurement_t = probes.process(next_neurons)
 
         return next_carry, measurement_t
 
