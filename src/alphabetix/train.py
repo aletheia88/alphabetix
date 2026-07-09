@@ -13,9 +13,9 @@ from .simulate import run_simulation
 class BatchLog(eqx.Module):
     """A data class to store training details for a single batch."""
 
-    voltages: jax.Array
-    network_state: Network
-    neuron_state: Neuron
+    voltage: jax.Array
+    connectivity: jax.Array
+    input_current: jax.Array
 
 
 def simulation_step(
@@ -72,9 +72,9 @@ def simulation_loss(measurements, final_network, final_neurons):
     target_voltage = -50.0
     loss = jnp.mean((inh_voltages - target_voltage) ** 2)
     batch_log = BatchLog(
-        voltages=voltages,
-        network_state=final_network,
-        neuron_state=final_neurons,
+        voltage=voltages,
+        connectivity=updated_connectivity,
+        input_current=updated_inputs,
     )
     return loss, batch_log
 
