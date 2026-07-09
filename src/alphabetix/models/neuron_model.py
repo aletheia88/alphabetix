@@ -32,7 +32,7 @@ class NeuronModel(Module):
             - (dt / c_m) * current
         )
         candidate_spike = straight_through_threshold(
-            neuron.voltage,
+            voltage_pre_spike,
             self.spiking_threshold,
         )
         spike = candidate_spike * (1.0 - is_refractory.astype(jnp.float32))
