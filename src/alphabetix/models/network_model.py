@@ -43,7 +43,6 @@ class NetworkModel(Module):
         last_u = neurons.utilization
         last_x = neurons.resource
 
-        # plain_increment = self.connectivity * arriving_spikes
         plain_increment = self.connectivity * neurons.spike
         stp_increment = plain_increment * (last_u * last_x)
         # short-term plasticity only applies to exc-exc connections
@@ -57,7 +56,6 @@ class NetworkModel(Module):
         inh_synapse_activations = next_synapse_activations * inh_mask
 
         # update STP variables
-        # fired_exc = arriving_spikes * exc_mask
         fired_exc = neurons.spike * exc_mask
 
         u_temp = last_u + dt * (self.u_total - last_u) / self.tau_f

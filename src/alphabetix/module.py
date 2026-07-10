@@ -35,7 +35,6 @@ class Module(eqx.Module):
         leaves = {}
 
         for field in dataclasses.fields(self):
-            print(field.name)
             value = getattr(self, field.name)
             field_type = field.metadata.get("partition", "static")
 

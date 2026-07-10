@@ -25,8 +25,7 @@ def simulation_step(
     probes: Probes,
 ):
     # compute inputs
-    # inputs = model.input_model.compute_currents(model.dt)  # TODO: add key to inputs
-    inputs = jnp.zeros((30, 3))
+    inputs = model.input_model.compute_currents(model.dt)  # TODO: add key to inputs
 
     return run_simulation(model, inputs, initial_network, initial_neurons, probes)
 
@@ -44,14 +43,14 @@ def train_step(
 
     def batch_loss_grad(params):
         model = eqx.combine(params, static)
-        measurements, final_network, final_neurons = simulation_step(
+        measurements, _, _ = simulation_step(
             model,
             initial_network,
             initial_neurons,
             probes,
         )
         # TODO: split key by `batch_size` and pass to `simulation_loss`
-        loss, batch_log = simulation_loss(measurements, final_network, final_neurons)
+        loss, batch_log = simulation_loss(model, measurements)
         return loss, batch_log
 
     (loss, batch_log), grads = eqx.filter_value_and_grad(batch_loss_grad, has_aux=True)(
