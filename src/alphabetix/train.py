@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from functools import partial
 
 import equinox as eqx
@@ -18,21 +19,10 @@ class BatchLog(eqx.Module):
     input_current: jax.Array
 
 
-def simulation_step(
-    model: Model,
-    initial_network: Network,
-    initial_neurons: Neuron,
-    probes: Probes,
-):
-    # compute inputs
-    inputs = model.input_model.compute_currents(model.dt)  # TODO: add key to inputs
-
-    return run_simulation(model, inputs, initial_network, initial_neurons, probes)
-
-
 @partial(eqx.filter_jit)
 def train_step(
     model: Model,
+    loss_function: Callable[[dict[str, jax.Array]], jax.Array],
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
@@ -50,7 +40,7 @@ def train_step(
             probes,
         )
         # TODO: split key by `batch_size` and pass to `simulation_loss`
-        loss, batch_log = simulation_loss(model, measurements)
+        loss = loss_function(measurements)
         return loss, batch_log
 
     (loss, batch_log), grads = eqx.filter_value_and_grad(batch_loss_grad, has_aux=True)(
