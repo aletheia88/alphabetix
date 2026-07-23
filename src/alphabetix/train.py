@@ -7,16 +7,21 @@ import jax.numpy as jnp
 import optax
 
 from .models import Model, Network, Neuron
+from .module import Module
 from .record import Probes
 from .simulate import run_simulation
 
 
-class BatchLog(eqx.Module):
+class BatchLog(Module):
     """A data class to store training details for a single batch."""
 
-    voltage: jax.Array
     connectivity: jax.Array
     input_current: jax.Array
+    loss: jax.Array
+    # raw gradients
+    connectivity_grads: jax.Array
+    # optimizer-transformed weight updates
+    connectivity_updates: jax.Array
 
 
 @partial(eqx.filter_jit)
@@ -41,31 +46,39 @@ def train_step(
         )
         # TODO: split key by `batch_size` and pass to `simulation_loss`
         loss = loss_function(measurements)
-        return loss, batch_log
+        batch_log = log_iteration(model, loss)
+        return loss, (batch_log, measurements)
 
-    (loss, batch_log), grads = eqx.filter_value_and_grad(batch_loss_grad, has_aux=True)(
-        params
-    )
+    (loss, (batch_log, measurements)), grads = eqx.filter_value_and_grad(
+        batch_loss_grad, has_aux=True
+    )(params)
     updates, opt_state = optimizer.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
     params = _constrain_connectivity(params)
     model = eqx.combine(params, static)
 
-    return model, opt_state, loss, batch_log
+    connectivity_grads = grads.network_model.connectivity
+    connectivity_updates = updates.network_model.connectivity
+    batch_log = batch_log.replace(
+        connectivity_grads=connectivity_grads,
+        connectivity_updates=connectivity_updates,
+    )
+
+    return model, opt_state, loss, batch_log, measurements
 
 
-def simulation_loss(measurements, final_network, final_neurons):
-    voltages = measurements["voltage"]
-    exc_voltages = voltages[:5, :2]
-    inh_voltages = voltages[:5, -1]
-    target_voltage = -50.0
-    loss = jnp.mean((inh_voltages - target_voltage) ** 2)
+def log_iteration(model, loss):
+    updated_connectivity = model.network_model.connectivity
+    updated_inputs = model.input_model.compute_currents(model.dt)
+
     batch_log = BatchLog(
-        voltage=voltages,
         connectivity=updated_connectivity,
         input_current=updated_inputs,
+        loss=loss,
+        connectivity_grads=jnp.zeros_like(model.network_model.connectivity),
+        connectivity_updates=jnp.zeros_like(model.network_model.connectivity),
     )
-    return loss, batch_log
+    return batch_log
 
 
 def _constrain_connectivity(
