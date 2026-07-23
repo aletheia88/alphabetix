@@ -7,6 +7,20 @@ from .record import Probes
 
 def run_simulation(
     model: Model,
+    initial_network: Network,
+    initial_neurons: Neuron,
+    probes: Probes,
+):
+    # compute inputs
+    inputs = model.input_model.compute_currents(model.dt)  # TODO: add key to inputs
+
+    return run_simulation_on_inputs(
+        model, inputs, initial_network, initial_neurons, probes
+    )
+
+
+def run_simulation_on_inputs(
+    model: Model,
     inputs: jax.Array,
     initial_network: Network,
     initial_neurons: Neuron,

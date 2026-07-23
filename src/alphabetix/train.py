@@ -33,7 +33,7 @@ def train_step(
 
     def batch_loss_grad(params):
         model = eqx.combine(params, static)
-        measurements, _, _ = simulation_step(
+        measurements, _, _ = run_simulation(
             model,
             initial_network,
             initial_neurons,
