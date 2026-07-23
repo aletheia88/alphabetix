@@ -27,15 +27,17 @@ class NeuronModel(Module):
 
         voltage_pre_spike = (
             neuron.voltage
-            - (dt / neuron.tau_membrane)
-            * (neuron.voltage - self.leaky_reversal_potential)
+            - (
+                (dt / neuron.tau_membrane)
+                * (neuron.voltage - self.leaky_reversal_potential)
+            )
             - (dt / c_m) * current
         )
         candidate_spike = sigmoid_through_threshold(
             voltage_pre_spike,
             self.spiking_threshold,
         )
-        spike = candidate_spike * (1.0 - is_refractory.astype(jnp.float32))
+        spike = candidate_spike * jnp.logical_not(is_refractory)
         # update refractory period timer
         refractory_time_remaining = jnp.where(
             spike > 0.0,
