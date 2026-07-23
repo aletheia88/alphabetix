@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 
 from ..module import Module
-from ..utils import straight_through_threshold
+from ..utils import sigmoid_through_threshold
 
 
 class NeuronModel(Module):
@@ -31,7 +31,7 @@ class NeuronModel(Module):
             * (neuron.voltage - self.leaky_reversal_potential)
             - (dt / c_m) * current
         )
-        candidate_spike = straight_through_threshold(
+        candidate_spike = sigmoid_through_threshold(
             voltage_pre_spike,
             self.spiking_threshold,
         )

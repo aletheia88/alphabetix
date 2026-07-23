@@ -22,14 +22,7 @@ def straight_through_threshold(value, threshold):
     return straight_through(lambda v: v >= threshold, value)
 
 
-if __name__ == "__main__":
-    x = 2.0
-    theta = 1.0
-
-    y = x >= theta
-    # y ∈ {0, 1}
-    # and ∂y/∂x = 0
-
-    y = straight_through_threshold(x, theta)
-    # y ∈ {0, 1} (as before)
-    # but ∂y/∂x = 1
+def sigmoid_through_threshold(value, threshold):
+    x = jax.nn.sigmoid(value - threshold)
+    zero = x - jax.lax.stop_gradient(x)
+    return (value >= threshold) + zero
