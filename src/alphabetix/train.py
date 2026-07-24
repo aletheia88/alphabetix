@@ -24,9 +24,17 @@ class BatchLog(Module):
     connectivity_updates: jax.Array
 
 
-@partial(eqx.filter_jit)
+@partial(
+    jax.jit,
+    static_argnames=(
+        "loss_function",
+        "probes",
+        "optimizer",
+    ),
+)
 def train_step(
-    model: Model,
+    params: Model,
+    static: Model,
     loss_function: Callable[[dict[str, jax.Array]], jax.Array],
     initial_network: Network,
     initial_neurons: Neuron,
@@ -34,8 +42,6 @@ def train_step(
     optimizer: optax.GradientTransformation,
     opt_state: optax.OptState,
 ):
-    params, static = model.partition()
-
     def batch_loss_grad(params):
         model = eqx.combine(params, static)
         measurements, _, _ = run_simulation(
@@ -44,18 +50,16 @@ def train_step(
             initial_neurons,
             probes,
         )
-        # TODO: split key by `batch_size` and pass to `simulation_loss`
         loss = loss_function(measurements)
         batch_log = log_iteration(model, loss)
         return loss, (batch_log, measurements)
 
-    (loss, (batch_log, measurements)), grads = eqx.filter_value_and_grad(
+    (loss, (batch_log, measurements)), grads = jax.value_and_grad(
         batch_loss_grad, has_aux=True
     )(params)
     updates, opt_state = optimizer.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
     params = _constrain_connectivity(params)
-    model = eqx.combine(params, static)
 
     connectivity_grads = grads.network_model.connectivity
     connectivity_updates = updates.network_model.connectivity
@@ -64,7 +68,7 @@ def train_step(
         connectivity_updates=connectivity_updates,
     )
 
-    return model, opt_state, loss, batch_log, measurements
+    return params, opt_state, loss, batch_log, measurements
 
 
 def log_iteration(model, loss):
