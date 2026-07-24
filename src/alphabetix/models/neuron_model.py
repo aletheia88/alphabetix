@@ -29,7 +29,7 @@ class NeuronModel(Module):
                 (dt / neuron.tau_membrane)
                 * (neuron.voltage - self.leaky_reversal_potential)
             )
-            - (dt / c_m) * current
+            + (dt / c_m) * current
         )
         candidate_spike = sigmoid_through_threshold(
             voltage_pre_spike,
