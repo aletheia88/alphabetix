@@ -3,8 +3,8 @@ from .input_model import InputModel
 from .model import Model
 from .network import Network
 from .network_model import NetworkModel
-from .neuron import Neuron
-from .neuron_model import NeuronModel
+from .neuron_model import Neuron, NeuronModel
+from .lif_neuron_model import LIFNeuronModel
 from .timeline import Timeline
 
 __all__ = [
@@ -15,5 +15,6 @@ __all__ = [
     "NetworkModel",
     "Neuron",
     "NeuronModel",
+    "LIFNeuronModel",
     "Timeline",
 ]
