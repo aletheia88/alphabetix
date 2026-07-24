@@ -17,8 +17,6 @@ class NeuronModel(Module):
         neuron,  # the state
         activation,
         current,
-        utilization,
-        resource,
         dt,
     ):
         c_m = self.membrane_capacitance
@@ -57,6 +55,4 @@ class NeuronModel(Module):
             current=current,
             voltage=voltage,
             refractory_time_remaining=refractory_time_remaining,
-            utilization=utilization,
-            resource=resource,
         )
