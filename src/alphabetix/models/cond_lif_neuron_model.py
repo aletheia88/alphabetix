@@ -22,18 +22,6 @@ class ConductanceNeuronModel(NeuronModel):
     tau_refractory: jnp.float32 = Module.static(default=0.5)  # msec
 
     class Neuron(Neuron):
-        """States of a neuron."""
-
-        # static states
-        position: jax.Array
-        sign: int  # +1 for excitatory, -1 for inhibitory
-        type: int  # 1: exc 2: som 3: pv 4: vip
-
-        # dynamic states
-        spike: jnp.float32 = 0.0  # either 1.0 or 0.0
-        activation: jnp.float32 = 0.0
-        current: jnp.float32 = 0.0
-        voltage: jnp.float32 = -60.0
         refractory_conductance: jnp.float32 = 0.0
 
     def update(
