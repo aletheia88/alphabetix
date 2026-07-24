@@ -19,10 +19,12 @@ class ConductanceNeuronModel(NeuronModel):
 
     refractory_potential: jnp.float32 = Module.static(default=-90.0)  # mV
     refractory_conductance_inc: jnp.float32 = Module.static(default=100.0)  # nS
-    tau_refractory: jnp.float32 = Module.static(default=0.5)  # msec
+    tau_refractory: jnp.float32 = Module.static(default=8.0)  # ms
+    refractory_time: jnp.float32 = Module.static(default=2.0)  # ms
 
     class Neuron(Neuron):
         refractory_conductance: jnp.float32 = 0.0
+        refractory_time_remaining: jnp.float32 = 0.0
 
     def update(
         self,
@@ -46,7 +48,9 @@ class ConductanceNeuronModel(NeuronModel):
         V += dV
 
         # spike?
-        spike = sigmoid_through_threshold(V, self.spiking_threshold)
+        spike = sigmoid_through_threshold(V, self.spiking_threshold) * (
+            neuron.refractory_time_remaining <= 0.0
+        )
 
         # update refractory conductance
         dg_R = (
@@ -54,10 +58,16 @@ class ConductanceNeuronModel(NeuronModel):
         )
         g_R += dg_R
 
+        # update refractory time remaining
+        refractory_time_remaining = (1.0 - spike) * (
+            neuron.refractory_time_remaining - dt
+        ) + spike * self.refractory_time
+
         return neuron.replace(
             spike=spike,
             activation=activation,
             current=current,
             voltage=V,
             refractory_conductance=g_R,
+            refractory_time_remaining=refractory_time_remaining,
         )
