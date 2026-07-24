@@ -16,11 +16,11 @@ class LIFNeuronModel(NeuronModel):
     leaky_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
     spiking_threshold: jnp.float32 = Module.static(default=-50.0)  # mV
 
+    tau_membrane: jnp.float32 = Module.static(default=10.0)  # membrane decay, ms
     tau_refractory: jnp.float32 = Module.static(default=2.0)  # msec
     reset_voltage: jnp.float32 = Module.static(default=-60.0)  # mV
 
     class Neuron(Neuron):
-        tau_membrane: float  # membrane decay time constant, ms
         refractory_conductance: jnp.float32 = 0.0
         refractory_time_remaining: jnp.float32 = 0.0  # msec
         utilization: jnp.float32 = 0.3  # u
@@ -40,7 +40,7 @@ class LIFNeuronModel(NeuronModel):
         voltage_pre_spike = (
             neuron.voltage
             - (
-                (dt / neuron.tau_membrane)
+                (dt / self.tau_membrane)
                 * (neuron.voltage - self.leaky_reversal_potential)
             )
             + (dt / c_m) * current
