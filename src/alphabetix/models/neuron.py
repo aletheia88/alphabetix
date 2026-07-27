@@ -19,7 +19,7 @@ class Neuron(Module):
     current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
 
-    refractory_time_remaining: jnp.float32 = 0.0  # msec
-
+    refractory_time_remaining: jnp.float32 = 2.0  # msec
     utilization: jnp.float32 = 0.3  # u
     resource: jnp.float32 = 1.0  # x
+    g_sra: jnp.float32 = 0.0  # nS
