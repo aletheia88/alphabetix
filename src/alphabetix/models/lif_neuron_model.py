@@ -16,7 +16,7 @@ class LIFNeuronModel(NeuronModel):
     leaky_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
     spiking_threshold: jnp.float32 = Module.static(default=-50.0)  # mV
 
-    tau_membrane: jnp.float32 = Module.static(default=10.0)  # membrane decay, ms
+    tau_membrane: jnp.float32 = Module.static(default=10.5)  # membrane decay, ms
     tau_refractory: jnp.float32 = Module.static(default=2.0)  # msec
     reset_voltage: jnp.float32 = Module.static(default=-60.0)  # mV
 
