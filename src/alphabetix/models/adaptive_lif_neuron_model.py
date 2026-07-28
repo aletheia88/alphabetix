@@ -43,7 +43,7 @@ class AdaptiveNeuronModel(NeuronModel):
         )
 
         candidate_spike = sigmoid_through_threshold(
-            neuron.voltage,
+            voltage,
             self.spiking_threshold,
         )
         spike = candidate_spike * jnp.logical_not(is_refractory)
