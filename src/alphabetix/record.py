@@ -49,6 +49,13 @@ class ActivationProbe(GeneralProbe):
         super().__init__(attribute)
 
 
+class RefractoryTimeProbe(GeneralProbe):
+    """Record activation of all neurons at time t."""
+
+    def __init__(self, attribute: str = "refractory_time_remaining"):
+        super().__init__(attribute)
+
+
 class Probes:
     def __init__(self, probes: list[Probe] | None = None):
         if probes is None:
