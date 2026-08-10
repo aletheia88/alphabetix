@@ -22,10 +22,15 @@ class Timeline:
         - Indices 1..N: correspond to the 1st, 2nd, ..., N-th cue
 
     Example (sequence = "cab"):
+        writing period:
         delay → (1, 0, 0, 0)
         c     → (0, 1, 0, 0)
         a     → (0, 0, 1, 0)
         b     → (0, 0, 0, 1)
+
+        reading period:
+        query → (0, 0, 0, 1)
+        (i.e., querying for the identity of the 3rd token -> b)
 
     (2) Category Encoding
     ---------------------
@@ -44,7 +49,9 @@ class Timeline:
 
     cue_time: int
     delay_time: int
+    query_time: int
     sequence: str
+    query: int
 
     num_categories: int = field(init=False)
     num_cues: int = field(init=False)
@@ -63,12 +70,13 @@ class Timeline:
     def __post_init__(self):
         if not self.sequence:
             raise ValueError("`sequence` must be non-empty.")
-        if self.cue_time <= 0 or self.delay_time <= 0:
-            raise ValueError("`cue_time` and `delay_time` must be positive.")
+        if self.cue_time <= 0 or self.delay_time <= 0 or self.query_time <= 0:
+            raise ValueError("`cue_time`, `delay_time`, `query_time` must be positive.")
 
         self.categories = tuple(sorted(set(self.sequence)))
         self.num_categories = len(self.categories)
         self.num_cues = len(self.sequence) + 1
+
         self.category_to_index = {
             category: i for i, category in enumerate(self.categories)
         }
@@ -90,6 +98,11 @@ class Timeline:
             t += self.cue_time
             ends.append(t)
 
+        labels.append("query")
+        starts.append(t)
+        t += self.query_time
+        ends.append(t)
+
         self.segment_labels = tuple(labels)
         self.segment_starts = jnp.array(starts)
         self.segment_ends = jnp.array(ends)
@@ -105,7 +118,13 @@ class Timeline:
 
         for label in self.segment_labels:
             if label == "delay":
+                # delay period has topdown but zero sensory input
                 temporal_rows.append(eye_temporal[0])
+                category_rows.append(
+                    jnp.zeros((self.num_categories,), dtype=jnp.float32)
+                )
+            elif label == "query":
+                temporal_rows.append(eye_temporal[self.query])
                 category_rows.append(
                     jnp.zeros((self.num_categories,), dtype=jnp.float32)
                 )
@@ -132,4 +151,3 @@ class Timeline:
 
     def lookup_label(self, t: int) -> str:
         return self.segment_labels[int(self.lookup_index(t))]
-
