@@ -60,6 +60,7 @@ class Timeline:
     query_time: int
     sequence: str
     query: int
+    vocabulary: tuple[str, ...] | None
 
     num_categories: int = field(init=False)
     num_cues: int = field(init=False)
@@ -80,8 +81,27 @@ class Timeline:
             raise ValueError("`sequence` must be non-empty.")
         if self.cue_time <= 0 or self.delay_time <= 0 or self.query_time <= 0:
             raise ValueError("`cue_time`, `delay_time`, `query_time` must be positive.")
+        if not 1 <= self.query <= len(self.sequence):
+            raise ValueError(
+                f"`query` must lie in [1, {len(self.sequence)}], got {self.query}."
+            )
 
-        self.categories = tuple(sorted(set(self.sequence)))
+        if self.vocabulary is None:
+            self.categories = tuple(sorted(set(self.sequence)))
+        else:
+            self.categories = tuple(self.vocabulary)
+            if not self.categories:
+                raise ValueError("`vocabulary` must be non-empty.")
+            if len(set(self.categories)) != len(self.categories):
+                raise ValueError("`vocabulary` must not contain duplicates.")
+
+            unknown = set(self.sequence) - set(self.categories)
+            if unknown:
+                raise ValueError(
+                    "Every item in `sequence` must occur in `vocabulary`; "
+                    f"unknown items: {sorted(unknown)}."
+                )
+
         self.num_categories = len(self.categories)
         self.num_cues = len(self.sequence) + 1
 
