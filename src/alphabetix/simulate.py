@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from .models import Model, Network, Neuron
+from .models import Model, Network, Neuron, TimelineInputs
 from .record import Probes
 
 
@@ -10,9 +10,10 @@ def run_simulation(
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
+    timeline_inputs: TimelineInputs,
 ):
     # compute inputs
-    inputs = model.input_model.compute_currents(model.dt)  # TODO: add key to inputs
+    inputs = model.input_model.compute_currents(timeline_inputs)
 
     return run_simulation_on_inputs(
         model, inputs, initial_network, initial_neurons, probes

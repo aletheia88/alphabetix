@@ -1,6 +1,14 @@
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
 import jax.numpy as jnp
+
+
+class TimelineInputs(NamedTuple):
+    """JAX-ready input data for one discretized timeline."""
+
+    temporal_encodings: jnp.ndarray
+    category_encodings: jnp.ndarray
 
 
 @dataclass
@@ -151,3 +159,16 @@ class Timeline:
 
     def lookup_label(self, t: int) -> str:
         return self.segment_labels[int(self.lookup_index(t))]
+
+    def get_inputs(self, dt: float) -> TimelineInputs:
+        num_timesteps = round(self.total_time / dt)
+        times = jnp.arange(num_timesteps, dtype=jnp.float32) * dt
+        segment_indices = jnp.searchsorted(
+            self.segment_ends,
+            times,
+            side="right",
+        )
+        return TimelineInputs(
+            temporal_encodings=self.temporal_table[segment_indices],
+            category_encodings=self.category_table[segment_indices],
+        )

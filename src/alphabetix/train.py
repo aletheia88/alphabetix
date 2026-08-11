@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import optax
 
-from .models import Model, Network, Neuron
+from .models import Model, Network, Neuron, TimelineInputs
 from .module import Module
 from .record import Probes
 from .simulate import run_simulation
@@ -41,6 +41,7 @@ def train_step(
     probes: Probes,
     optimizer: optax.GradientTransformation,
     opt_state: optax.OptState,
+    timeline_inputs: TimelineInputs,
 ):
     def batch_loss_grad(params):
         model = eqx.combine(params, static)
@@ -49,9 +50,10 @@ def train_step(
             initial_network,
             initial_neurons,
             probes,
+            timeline_inputs,
         )
         loss = loss_function(measurements)
-        batch_log = log_iteration(model, loss)
+        batch_log = log_iteration(model, loss, timeline_inputs)
         return loss, (batch_log, measurements)
 
     (loss, (batch_log, measurements)), grads = jax.value_and_grad(
@@ -71,9 +73,9 @@ def train_step(
     return params, opt_state, loss, batch_log, measurements
 
 
-def log_iteration(model, loss):
+def log_iteration(model, loss, timeline_inputs):
     updated_connectivity = model.network_model.connectivity
-    updated_inputs = model.input_model.compute_currents(model.dt)
+    updated_inputs = model.input_model.compute_currents(timeline_inputs)
 
     batch_log = BatchLog(
         connectivity=updated_connectivity,
