@@ -35,13 +35,14 @@ class BatchLog(Module):
 def train_step(
     params: Model,
     static: Model,
-    loss_function: Callable[[dict[str, jax.Array]], jax.Array],
+    loss_function: Callable[[Model, jax.Array, jax.Array], jax.Array],
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
     optimizer: optax.GradientTransformation,
     opt_state: optax.OptState,
     timeline_inputs: TimelineInputs,
+    target: jax.Array,
 ):
     def batch_loss_grad(params):
         model = eqx.combine(params, static)
@@ -52,8 +53,11 @@ def train_step(
             probes,
             timeline_inputs,
         )
-        loss = loss_function(measurements)
+        query_timesteps = model.decoder_model.timesteps
+        spikes = measurements["spike"][query_timesteps, :]
+        loss = loss_function(model, spikes, target)
         batch_log = log_iteration(model, loss, timeline_inputs)
+
         return loss, (batch_log, measurements)
 
     (loss, (batch_log, measurements)), grads = jax.value_and_grad(
