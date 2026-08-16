@@ -1,7 +1,10 @@
 __version__ = "0.0.1"
 
+from . import train
+
 from .models import (
     DecoderModel,
+    ExplicitInputModel,
     InputModel,
     Model,
     Network,
@@ -10,16 +13,20 @@ from .models import (
     NeuronModel,
     Timeline,
 )
-
-from .electrodes import Electrode
-from .record import ActivationProbe, CurrentProbe, VoltageProbe, SpikeProbe, Probes
+from .record import (
+    ActivationProbe,
+    CurrentProbe,
+    Probes,
+    SpikeProbe,
+    VoltageProbe,
+)
 from .simulate import run_simulation
 
 __all__ = [
     "ActivationProbe",
     "CurrentProbe",
     "DecoderModel",
-    "Electrode",
+    "ExplicitInputModel",
     "InputModel",
     "Model",
     "Network",
@@ -31,4 +38,5 @@ __all__ = [
     "Timeline",
     "VoltageProbe",
     "run_simulation",
+    "train",
 ]

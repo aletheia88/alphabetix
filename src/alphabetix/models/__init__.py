@@ -1,6 +1,11 @@
 from .adaptive_lif_neuron_model import AdaptiveNeuronModel
 from .decoder_model import DecoderModel
-from .input_model import ExplicitInputModel, InputModel
+from .input_model import (
+    ExplicitInputModel,
+    InputModel,
+    TimelineInputModel,
+    TimelineInputs,
+)
 from .model import Model
 from .network import Network
 from .network_model import NetworkModel
@@ -20,4 +25,6 @@ __all__ = [
     "NeuronModel",
     "NeuronModel",
     "Timeline",
+    "TimelineInputModel",
+    "TimelineInputs",
 ]
