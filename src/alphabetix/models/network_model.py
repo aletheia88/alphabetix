@@ -5,6 +5,11 @@ from ..module import Module
 
 
 class NetworkModel(Module):
+    # parameters for background currents
+    mean_bg_current: jnp.float32 = Module.static()
+    sigma_bg: jnp.float32 = Module.static()
+    tau_bg: jnp.float32 = Module.static()
+
     # connectivity: conductance weights, unit nS
     # shape: (num_neurons, num_neurons)
     # rows: post-synaptic neurons
@@ -68,12 +73,31 @@ class NetworkModel(Module):
 
         activations = exc_activations + inh_activations
 
+        previous_bg_currents = network.cortical_background
+
+        noise_scale = self.sigma_bg * jnp.sqrt(-jnp.expm1(-2.0 * dt / self.tau_bg))
+
+        key0, key1 = jax.random.split(network.noise_key)
+        noise = jax.random.normal(
+            key1,
+            shape=previous_bg_currents.shape,
+            dtype=previous_bg_currents.dtype,
+        )
+
+        decay = jnp.exp(-dt / self.tau_bg)
+        bg_currents = (
+            self.mean_bg_current
+            + decay * (previous_bg_currents - self.mean_bg_current)
+            + noise_scale * noise
+        )
         exc_currents = exc_activations * (neurons.voltage - self.exc_reversal_potential)
         inh_currents = inh_activations * (neurons.voltage - self.inh_reversal_potential)
-        currents = exc_currents + inh_currents + input_currents
+        currents = exc_currents + inh_currents + input_currents + bg_currents
 
         next_network = network.replace(
             synapse_activations=next_synapse_activations,
+            cortical_background=bg_currents,
+            noise_key=key0,
         )
 
         return (
