@@ -12,16 +12,31 @@ from .record import Probes
 from .simulate import run_simulation
 
 
-class BatchLog(Module):
+class StepLog(Module):
     """A data class to store training details for a single batch."""
 
-    connectivity: jax.Array
-    input_current: jax.Array
-    loss: jax.Array
+    connectivity: jax.Array | None = None
+    input_current: jax.Array | None = None
+
+    # training objectives
+    decoder_loss: jax.Array | None = None
+    homeostasis_loss: jax.Array | None = None
+
+    # diagnostics for homeostatic objective
+    near_spiking_fraction: jax.Array | None = None
+    spontaneous_firing_rate: jax.Array | None = None
+    mean_bg_current: jax.Array | None = None
+    sigma_bg: jax.Array | None = None
+
     # raw gradients
-    connectivity_grads: jax.Array
-    # optimizer-transformed weight updates
-    connectivity_updates: jax.Array
+    connectivity_grads: jax.Array | None = None
+    mean_bg_current_grads: jax.Array | None = None
+    sigma_bg_current_grads: jax.Array | None = None
+
+    # optimizer-transformed updates
+    connectivity_updates: jax.Array | None = None
+    mean_bg_updates: jax.Array | None = None
+    sigma_bg_updates: jax.Array | None = None
 
 
 @partial(
@@ -30,6 +45,7 @@ class BatchLog(Module):
         "loss_function",
         "probes",
         "optimizer",
+        "log_fields",
     ),
 )
 def train_step(
@@ -43,9 +59,8 @@ def train_step(
     opt_state: optax.OptState,
     timeline_inputs: TimelineInputs,
     target: jax.Array,
+    log_fields: tuple[str, ...],
 ):
-    def batch_loss_grad(params):
-        model = eqx.combine(params, static)
         measurements, _, _ = run_simulation(
             model,
             initial_network,
@@ -55,40 +70,121 @@ def train_step(
         )
         query_timesteps = model.decoder_model.timesteps
         spikes = measurements["spike"][query_timesteps, :]
-        loss = loss_function(model, spikes, target)
-        batch_log = log_iteration(model, loss, timeline_inputs)
+        decoder_loss = decoder_loss_function(model, spikes, target)
 
-        return loss, (batch_log, measurements)
+        return decoder_loss, measurements
 
-    (loss, (batch_log, measurements)), grads = jax.value_and_grad(
-        batch_loss_grad, has_aux=True
+    def homeostasis_loss_grad(params):
+        task_inputs = model.input_model.compute_currents(timeline_inputs)
+        task_inputs = jnp.zeros_like(task_inputs)
+
+        measurements, _, _ = run_simulation_on_inputs(
+            model,
+            task_inputs,
+            initial_network,
+            initial_neurons,
+            probes,
+        )
+        homeostasis_loss, (near_spiking_fraction, spontaneous_firing_rate) = (
+            homeostasis_loss_function(model, measurements)
+        )
+
+        return homeostasis_loss, (near_spiking_fraction, spontaneous_firing_rate)
+
+    (decoder_loss, measurements), decoder_grads = jax.value_and_grad(
+        decoder_loss_grad, has_aux=True
     )(params)
+    (
+        (homeostasis_loss, (near_spiking_fraction, spontaneous_firing_rate)),
+        background_grads,
+    ) = jax.value_and_grad(homeostasis_loss_grad, has_aux=True)(params)
+
+    # compute and apply gradient updates
+    grads = _route_gradients(decoder_grads, background_grads)
     updates, opt_state = optimizer.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
+
+    # apply parameters constraints
     params = _constrain_connectivity(params)
+    params = _constrain_bg_parameters(params)
 
-    connectivity_grads = grads.network_model.connectivity
-    connectivity_updates = updates.network_model.connectivity
-    batch_log = batch_log.replace(
-        connectivity_grads=connectivity_grads,
-        connectivity_updates=connectivity_updates,
+    # log specified training outcomes / diagnostics
+    step_log = log_iteration(
+        model,
+        timeline_inputs,
+        decoder_loss,
+        homeostasis_loss,
+        near_spiking_fraction,
+        spontaneous_firing_rate,
+        decoder_grads,
+        background_grads,
+        updates,
+        log_fields,
     )
 
-    return params, opt_state, loss, batch_log, measurements
+    return params, opt_state, step_log, measurements
 
 
-def log_iteration(model, loss, timeline_inputs):
-    updated_connectivity = model.network_model.connectivity
-    updated_inputs = model.input_model.compute_currents(timeline_inputs)
-
-    batch_log = BatchLog(
-        connectivity=updated_connectivity,
-        input_current=updated_inputs,
-        loss=loss,
-        connectivity_grads=jnp.zeros_like(model.network_model.connectivity),
-        connectivity_updates=jnp.zeros_like(model.network_model.connectivity),
+def _route_gradients(decoder_grads, background_grads):
+    """Use background loss for computing background current parameters."""
+    return eqx.tree_at(
+        lambda m: (m.network_model.mean_bg_current, m.network_model.sigma_bg),
+        decoder_grads,
+        (
+            background_grads.network_model.mean_bg_current,
+            background_grads.network_model.sigma_bg,
+        ),
     )
-    return batch_log
+
+
+def log_iteration(
+    model: Model,
+    timeline_inputs: TimelineInputs,
+    decoder_loss: jax.Array,
+    homeostasis_loss: jax.Array,
+    near_spiking_fraction: jax.Array,
+    spontaneous_firing_rate: jax.Array,
+    decoder_grads: Model,
+    background_grads: Model,
+    updates: Model,
+    log_fields: tuple[str, ...],
+) -> StepLog:
+    """Create a StepLog containing only the requested fields."""
+    value_getters = {
+        # post-update network-level parameters
+        "connectivity": lambda: model.network_model.connectivity,
+        "input_current": lambda: model.input_model.compute_currents(timeline_inputs),
+        # objectives
+        "decoder_loss": lambda: decoder_loss,
+        "homeostasis_loss": lambda: homeostasis_loss,
+        # homeostatic diagnostics
+        "near_spiking_fraction": lambda: near_spiking_fraction,
+        "spontaneous_firing_rate": lambda: spontaneous_firing_rate,
+        "mean_bg_current": lambda: model.network_model.mean_bg_current,
+        "sigma_bg": lambda: model.network_model.sigma_bg,
+        # raw gradients
+        "connectivity_grads": lambda: decoder_grads.network_model.connectivity,
+        "mean_bg_current_grads": lambda: (
+            background_grads.network_model.mean_bg_current
+        ),
+        "sigma_bg_current_grads": lambda: background_grads.network_model.sigma_bg,
+        # optimizer-transformed updates
+        "connectivity_updates": lambda: updates.network_model.connectivity,
+        "mean_bg_updates": lambda: updates.network_model.mean_bg_current,
+        "sigma_bg_updates": lambda: updates.network_model.sigma_bg,
+    }
+
+    unknown_fields = set(log_fields) - set(value_getters)
+    if unknown_fields:
+        valid_fields = ", ".join(value_getters)
+        unknown_fields = ", ".join(sorted(unknown_fields))
+        raise ValueError(
+            f"Unknown StepLog field(s): {unknown_fields}. "
+            f"Valid fields are: {valid_fields}."
+        )
+
+    logged_values = {name: value_getters[name]() for name in log_fields}
+    return StepLog(**logged_values)
 
 
 def _constrain_connectivity(
