@@ -9,7 +9,7 @@ import optax
 from .models import Model, Network, Neuron, TimelineInputs
 from .module import Module
 from .record import Probes
-from .simulate import run_simulation
+from .simulate import run_simulation, run_simulation_on_inputs
 
 
 class StepLog(Module):
@@ -42,7 +42,8 @@ class StepLog(Module):
 @partial(
     jax.jit,
     static_argnames=(
-        "loss_function",
+        "decoder_loss_function",
+        "homeostasis_loss_function",
         "probes",
         "optimizer",
         "log_fields",
@@ -51,7 +52,8 @@ class StepLog(Module):
 def train_step(
     params: Model,
     static: Model,
-    loss_function: Callable[[Model, jax.Array, jax.Array], jax.Array],
+    decoder_loss_function: Callable[[Model, jax.Array, jax.Array], jax.Array],
+    homeostasis_loss_function: Callable[[Model, jax.Array], jax.Array],
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
@@ -60,7 +62,13 @@ def train_step(
     timeline_inputs: TimelineInputs,
     target: jax.Array,
     log_fields: tuple[str, ...],
+    noise_key: jax.Array,
 ):
+    # update key for sampling noise
+    initial_network = initial_network.replace(noise_key=noise_key)
+    model = eqx.combine(params, static)
+
+    def decoder_loss_grad(params):
         measurements, _, _ = run_simulation(
             model,
             initial_network,
