@@ -6,8 +6,8 @@ from ..module import Module
 
 class NetworkModel(Module):
     # parameters for background currents
-    mean_bg_current: jnp.float32 = Module.static()
-    sigma_bg: jnp.float32 = Module.static()
+    mean_bg_current: jnp.float32 = Module.param()
+    sigma_bg: jnp.float32 = Module.param()
     tau_bg: jnp.float32 = Module.static()
 
     # connectivity: conductance weights, unit nS
