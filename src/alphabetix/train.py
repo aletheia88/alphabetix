@@ -211,3 +211,14 @@ def _constrain_connectivity(
         params,
         connectivity,
     )
+
+
+def _constrain_bg_parameters(params, min_sigma=1e-6):
+    """Keep the OU stationary standard deviation non-negative."""
+    sigma_bg = jnp.maximum(params.network_model.sigma_bg, min_sigma)
+
+    return eqx.tree_at(
+        lambda m: m.network_model.sigma_bg,
+        params,
+        sigma_bg,
+    )
