@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 
 from ..module import Module
+from .swiglu import SwiGLU
 
 
 class DecoderModel(Module):
@@ -29,18 +30,21 @@ class DecoderModel(Module):
         self.hidden_size = hidden_size
 
         input_size = self.num_timesteps * num_neurons
-        k1, k2 = jax.random.split(key)
 
         self.layers = (
-            eqx.nn.Linear(input_size, hidden_size, key=k1),
-            eqx.nn.Linear(hidden_size, num_categories, key=k2),
+            SwiGLU(
+                input_size,
+                hidden_size,
+                out_features=num_categories,
+                key=key,
+            ),
         )
 
     def __call__(self, spikes: jax.Array) -> jax.Array:
         x = jnp.ravel(spikes)
-        x = self.layers[0](x)
-        x = jax.nn.relu(x)
-        logits = self.layers[1](x)
+        for layer in self.layers:
+            x = layer(x)
+        logits = x
 
         return logits
 
