@@ -32,18 +32,23 @@ class StepLog(Module):
     connectivity_grads: jax.Array | None = None
     mean_bg_current_grads: jax.Array | None = None
     sigma_bg_current_grads: jax.Array | None = None
+    sensory_model_grads: jax.Array | None = None
+    topdown_model_grads: jax.Array | None = None
+    decoder_model_grads: jax.Array | None = None
 
     # optimizer-transformed updates
     connectivity_updates: jax.Array | None = None
-    mean_bg_updates: jax.Array | None = None
-    sigma_bg_updates: jax.Array | None = None
+    mean_bg_current_updates: jax.Array | None = None
+    sigma_bg_current_updates: jax.Array | None = None
+    sensory_model_updates: jax.Array | None = None
+    topdown_model_updates: jax.Array | None = None
+    decoder_model_updates: jax.Array | None = None
 
 
 @partial(
     jax.jit,
     static_argnames=(
         "decoder_loss_function",
-        "homeostasis_loss_function",
         "probes",
         "optimizer",
         "log_fields",
@@ -53,7 +58,6 @@ def train_step(
     params: Model,
     static: Model,
     decoder_loss_function: Callable[[Model, jax.Array, jax.Array], jax.Array],
-    homeostasis_loss_function: Callable[[Model, jax.Array], jax.Array],
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
@@ -66,9 +70,10 @@ def train_step(
 ):
     # update key for sampling noise
     initial_network = initial_network.replace(noise_key=noise_key)
-    model = eqx.combine(params, static)
 
     def decoder_loss_grad(params):
+        model = eqx.combine(params, static)
+
         measurements, _, _ = run_simulation(
             model,
             initial_network,
@@ -82,34 +87,10 @@ def train_step(
 
         return decoder_loss, measurements
 
-    def homeostasis_loss_grad(params):
-        task_inputs = model.input_model.compute_currents(timeline_inputs)
-        task_inputs = jnp.zeros_like(task_inputs)
-
-        measurements, _, _ = run_simulation_on_inputs(
-            model,
-            task_inputs,
-            initial_network,
-            initial_neurons,
-            probes,
-        )
-        homeostasis_loss, (near_spiking_fraction, spontaneous_firing_rate) = (
-            homeostasis_loss_function(model, measurements)
-        )
-
-        return homeostasis_loss, (near_spiking_fraction, spontaneous_firing_rate)
-
     (decoder_loss, measurements), decoder_grads = jax.value_and_grad(
         decoder_loss_grad, has_aux=True
     )(params)
-    (
-        (homeostasis_loss, (near_spiking_fraction, spontaneous_firing_rate)),
-        background_grads,
-    ) = jax.value_and_grad(homeostasis_loss_grad, has_aux=True)(params)
-
-    # compute and apply gradient updates
-    grads = _route_gradients(decoder_grads, background_grads)
-    updates, opt_state = optimizer.update(grads, opt_state, params)
+    updates, opt_state = optimizer.update(decoder_grads, opt_state, params)
     params = optax.apply_updates(params, updates)
 
     # apply parameters constraints
@@ -117,15 +98,12 @@ def train_step(
     params = _constrain_bg_parameters(params)
 
     # log specified training outcomes / diagnostics
+    model = eqx.combine(params, static)
     step_log = log_iteration(
         model,
         timeline_inputs,
         decoder_loss,
-        homeostasis_loss,
-        near_spiking_fraction,
-        spontaneous_firing_rate,
         decoder_grads,
-        background_grads,
         updates,
         log_fields,
     )
@@ -133,27 +111,11 @@ def train_step(
     return params, opt_state, step_log, measurements
 
 
-def _route_gradients(decoder_grads, background_grads):
-    """Use background loss for computing background current parameters."""
-    return eqx.tree_at(
-        lambda m: (m.network_model.mean_bg_current, m.network_model.sigma_bg),
-        decoder_grads,
-        (
-            background_grads.network_model.mean_bg_current,
-            background_grads.network_model.sigma_bg,
-        ),
-    )
-
-
 def log_iteration(
     model: Model,
     timeline_inputs: TimelineInputs,
     decoder_loss: jax.Array,
-    homeostasis_loss: jax.Array,
-    near_spiking_fraction: jax.Array,
-    spontaneous_firing_rate: jax.Array,
     decoder_grads: Model,
-    background_grads: Model,
     updates: Model,
     log_fields: tuple[str, ...],
 ) -> StepLog:
@@ -164,10 +126,6 @@ def log_iteration(
         "input_current": lambda: model.input_model.compute_currents(timeline_inputs),
         # objectives
         "decoder_loss": lambda: decoder_loss,
-        "homeostasis_loss": lambda: homeostasis_loss,
-        # homeostatic diagnostics
-        "near_spiking_fraction": lambda: near_spiking_fraction,
-        "spontaneous_firing_rate": lambda: spontaneous_firing_rate,
         "mean_bg_current": lambda: model.network_model.mean_bg_current,
         "sigma_bg": lambda: model.network_model.sigma_bg,
         # raw gradients
