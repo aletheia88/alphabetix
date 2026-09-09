@@ -9,22 +9,19 @@ import optax
 from .models import Model, Network, Neuron, TimelineInputs
 from .module import Module
 from .record import Probes
-from .simulate import run_simulation, run_simulation_on_inputs
+from .simulate import run_simulation
 
 
 class StepLog(Module):
     """A data class to store training details for a single batch."""
 
     connectivity: jax.Array | None = None
-    input_current: jax.Array | None = None
+    task_input_current: jax.Array | None = None
 
     # training objectives
     decoder_loss: jax.Array | None = None
-    homeostasis_loss: jax.Array | None = None
 
-    # diagnostics for homeostatic objective
-    near_spiking_fraction: jax.Array | None = None
-    spontaneous_firing_rate: jax.Array | None = None
+    # diagnostics for homeostasis
     mean_bg_current: jax.Array | None = None
     sigma_bg: jax.Array | None = None
 
@@ -123,21 +120,27 @@ def log_iteration(
     value_getters = {
         # post-update network-level parameters
         "connectivity": lambda: model.network_model.connectivity,
-        "input_current": lambda: model.input_model.compute_currents(timeline_inputs),
+        "task_input_current": lambda: model.input_model.compute_currents(
+            timeline_inputs
+        ),
         # objectives
         "decoder_loss": lambda: decoder_loss,
         "mean_bg_current": lambda: model.network_model.mean_bg_current,
         "sigma_bg": lambda: model.network_model.sigma_bg,
         # raw gradients
         "connectivity_grads": lambda: decoder_grads.network_model.connectivity,
-        "mean_bg_current_grads": lambda: (
-            background_grads.network_model.mean_bg_current
-        ),
-        "sigma_bg_current_grads": lambda: background_grads.network_model.sigma_bg,
+        "sensory_model_grads": lambda: decoder_grads.input_model.sensory_model,
+        "topdown_model_grads": lambda: decoder_grads.input_model.topdown_model,
+        "decoder_model_grads": lambda: decoder_grads.input_model.decoder_model,
+        "mean_bg_current_grads": lambda: (decoder_grads.network_model.mean_bg_current),
+        "sigma_bg_current_grads": lambda: decoder_grads.network_model.sigma_bg,
         # optimizer-transformed updates
         "connectivity_updates": lambda: updates.network_model.connectivity,
-        "mean_bg_updates": lambda: updates.network_model.mean_bg_current,
-        "sigma_bg_updates": lambda: updates.network_model.sigma_bg,
+        "sensory_model_updates": lambda: updates.input_model.sensory_model,
+        "topdown_model_updates": lambda: updates.input_model.topdown_model,
+        "decoder_model_updates": lambda: updates.decoder_model,
+        "mean_bg_current_updates": lambda: updates.network_model.mean_bg_current,
+        "sigma_bg_current_updates": lambda: updates.network_model.sigma_bg,
     }
 
     unknown_fields = set(log_fields) - set(value_getters)
