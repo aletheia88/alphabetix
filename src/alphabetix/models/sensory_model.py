@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from ..module import Module
 
 
-class SensoryModelMLP(Module):
+class SensoryModel(Module):
     layer: eqx.nn.Linear
     num_categories: int = Module.static()
     num_neurons: int = Module.static()
@@ -35,7 +35,7 @@ class SensoryModelMLP(Module):
         return self.layer(x)
 
 
-class SensoryModel(Module):
+class ExplicitSensoryModel(Module):
     coding_matrix: jax.Array
     # unique_assignment: (num_neurons,)
     # neurons with non-unique coding is assigned -1

@@ -43,10 +43,6 @@ class TimelineInputModel(InputModel):
         num_categories: int,
         num_exc_neurons: int,
         num_inh_neurons: int,
-        percent_coding: float,
-        percent_unique_coding: float,
-        percent_shared_coding: float,
-        stim_amplitude: float,
         *,
         key: jax.Array,
     ):
@@ -62,10 +58,6 @@ class TimelineInputModel(InputModel):
         self.sensory_model = SensoryModel(
             num_categories,
             num_exc_neurons,
-            percent_coding,
-            percent_unique_coding,
-            percent_shared_coding,
-            stim_amplitude,
             key=key1,
         )
         self.topdown_model = TopDownModel(self.num_cues, num_inh_neurons, key=key2)
