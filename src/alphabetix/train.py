@@ -71,7 +71,7 @@ def train_step(
     def decoder_loss_grad(params):
         model = eqx.combine(params, static)
 
-        measurements, _, _ = run_simulation(
+        measurements, final_network, final_neurons = run_simulation(
             model,
             initial_network,
             initial_neurons,
@@ -82,11 +82,11 @@ def train_step(
         spikes = measurements["spike"][query_timesteps, :]
         decoder_loss = decoder_loss_function(model, spikes, target)
 
-        return decoder_loss, measurements
+        return decoder_loss, (measurements, final_network, final_neurons)
 
-    (decoder_loss, measurements), decoder_grads = jax.value_and_grad(
-        decoder_loss_grad, has_aux=True
-    )(params)
+    (decoder_loss, (measurements, final_network, final_neurons)), decoder_grads = (
+        jax.value_and_grad(decoder_loss_grad, has_aux=True)(params)
+    )
     updates, opt_state = optimizer.update(decoder_grads, opt_state, params)
     params = optax.apply_updates(params, updates)
 
@@ -105,7 +105,14 @@ def train_step(
         log_fields,
     )
 
-    return params, opt_state, step_log, measurements
+    return (
+        params,
+        opt_state,
+        step_log,
+        measurements,
+        final_network,
+        final_neurons,
+    )
 
 
 def log_iteration(
