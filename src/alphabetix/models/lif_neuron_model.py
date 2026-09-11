@@ -15,11 +15,8 @@ class LIFNeuronModel(NeuronModel):
 
     def update(
         self,
-        neuron,  # the state
-        activation,
+        neuron,
         current,
-        utilization,
-        resource,
         dt,
     ):
         c_m = self.membrane_capacitance
@@ -54,10 +51,7 @@ class LIFNeuronModel(NeuronModel):
 
         return neuron.replace(
             spike=spike,
-            activation=activation,
             current=current,
             voltage=voltage,
             refractory_time_remaining=refractory_time_remaining,
-            utilization=utilization,
-            resource=resource,
         )

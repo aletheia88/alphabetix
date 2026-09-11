@@ -7,11 +7,8 @@ class NeuronModel(Module):
     @abstractmethod
     def update(
         self,
-        neuron,  # the state
-        activation,
+        neuron,
         current,
-        utilization,
-        resource,
         dt,
     ):
         pass

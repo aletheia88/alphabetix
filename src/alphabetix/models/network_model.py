@@ -25,17 +25,12 @@ class NetworkModel(Module):
     def step(self, neuron_model, neurons, network, inputs, dt):
         (
             next_network,
-            activations,
+            updated_neurons,
             currents,
-            utilization,
-            resource,
         ) = self._compute_activations_and_currents(neurons, network, inputs, dt)
-        next_neurons = jax.vmap(neuron_model.update, in_axes=(0, 0, 0, 0, 0, None))(
-            neurons,
-            activations,
+        next_neurons = jax.vmap(neuron_model.update, in_axes=(0, 0, None))(
+            updated_neurons,
             currents,
-            utilization,
-            resource,
             dt,
         )
         return next_network, next_neurons
@@ -73,7 +68,7 @@ class NetworkModel(Module):
 
         activations = exc_activations + inh_activations
 
-        previous_bg_currents = network.cortical_background
+        previous_bg_currents = neurons.cortical_bg_current
 
         noise_scale = self.sigma_bg * jnp.sqrt(-jnp.expm1(-2.0 * dt / self.tau_bg))
 
@@ -96,14 +91,18 @@ class NetworkModel(Module):
 
         next_network = network.replace(
             synapse_activations=next_synapse_activations,
-            cortical_background=bg_currents,
             noise_key=key0,
+        )
+
+        updated_neurons = neurons.replace(
+            activation=activations,
+            utilization=u,
+            resource=x,
+            cortical_bg_current=bg_currents,
         )
 
         return (
             next_network,
-            activations,
+            updated_neurons,
             currents,
-            u,
-            x,
         )
