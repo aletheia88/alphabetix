@@ -6,6 +6,7 @@ from .input_model import (
     TimelineInputModel,
     TimelineInputs,
 )
+from .lif_neuron_model import LIFNeuronModel
 from .model import Model
 from .network import Network
 from .network_model import NetworkModel
@@ -18,6 +19,7 @@ __all__ = [
     "DecoderModel",
     "ExplicitInputModel",
     "InputModel",
+    "LIFNeuronModel",
     "Model",
     "Network",
     "NetworkModel",
