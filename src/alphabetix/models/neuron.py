@@ -13,11 +13,12 @@ class Neuron(Module):
     type: int  # 1: exc 2: som 3: pv 4: vip
     tau_membrane: float  # membrane decay time constant, ms
 
-    cortical_bg_current: jnp.float32 = 0.0
-
     # dynamic states
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
     activation: jnp.float32 = 0.0
+    background_current: jnp.float32 = 0.0
+    synaptic_current: jnp.float32 = 0.0
+    task_input_current: jnp.float32 = 0.0
     current: jnp.float32 = 0.0
     voltage: jnp.float32 = -60.0
 

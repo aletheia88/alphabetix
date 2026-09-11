@@ -5,10 +5,5 @@ from ..module import Module
 
 class NeuronModel(Module):
     @abstractmethod
-    def update(
-        self,
-        neuron,
-        current,
-        dt,
-    ):
+    def update(self, neuron, dt):
         pass

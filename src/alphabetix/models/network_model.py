@@ -23,15 +23,11 @@ class NetworkModel(Module):
     inh_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
 
     def step(self, neuron_model, neurons, network, inputs, dt):
-        (
-            next_network,
-            updated_neurons,
-            currents,
-        ) = self._compute_activations_and_currents(neurons, network, inputs, dt)
-        next_neurons = jax.vmap(neuron_model.update, in_axes=(0, 0, None))(
-            updated_neurons,
-            currents,
-            dt,
+        (next_network, updated_neurons) = self._compute_activations_and_currents(
+            neurons, network, inputs, dt
+        )
+        next_neurons = jax.vmap(neuron_model.update, in_axes=(0, None))(
+            updated_neurons, dt
         )
         return next_network, next_neurons
 
@@ -68,7 +64,7 @@ class NetworkModel(Module):
 
         activations = exc_activations + inh_activations
 
-        previous_bg_currents = neurons.cortical_bg_current
+        previous_bg_currents = neurons.background_current
 
         noise_scale = self.sigma_bg * jnp.sqrt(-jnp.expm1(-2.0 * dt / self.tau_bg))
 
@@ -87,6 +83,8 @@ class NetworkModel(Module):
         )
         exc_currents = exc_activations * (neurons.voltage - self.exc_reversal_potential)
         inh_currents = inh_activations * (neurons.voltage - self.inh_reversal_potential)
+        synaptic_currents = exc_currents + inh_currents
+
         currents = exc_currents + inh_currents + input_currents + bg_currents
 
         next_network = network.replace(
@@ -96,13 +94,12 @@ class NetworkModel(Module):
 
         updated_neurons = neurons.replace(
             activation=activations,
+            background_current=bg_currents,
+            synaptic_current=synaptic_currents,
+            task_input_current=input_currents,
+            current=currents,
             utilization=u,
             resource=x,
-            cortical_bg_current=bg_currents,
         )
 
-        return (
-            next_network,
-            updated_neurons,
-            currents,
-        )
+        return (next_network, updated_neurons)

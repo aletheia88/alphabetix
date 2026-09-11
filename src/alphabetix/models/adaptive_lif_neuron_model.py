@@ -17,12 +17,7 @@ class AdaptiveNeuronModel(NeuronModel):
     delta_g_sra: jnp.float32 = Module.static(default=100.0)  # nS
     sra_reversal_potential: jnp.float32 = Module.static(default=-90.0)  # mV
 
-    def update(
-        self,
-        neuron,
-        current,
-        dt,
-    ):
+    def update(self, neuron, dt):
         c_m = self.membrane_capacitance
 
         is_refractory = neuron.refractory_time_remaining > 0.0
@@ -36,7 +31,7 @@ class AdaptiveNeuronModel(NeuronModel):
                 (dt / neuron.tau_membrane)
                 * (neuron.voltage - self.leaky_reversal_potential)
             )
-            - (dt / c_m) * (current + sra_current)
+            - (dt / c_m) * (neuron.current + sra_current)
         )
 
         candidate_spike = sigmoid_through_threshold(
@@ -55,7 +50,6 @@ class AdaptiveNeuronModel(NeuronModel):
 
         return neuron.replace(
             spike=spike,
-            current=current,
             voltage=voltage,
             refractory_time_remaining=refractory_time_remaining,
             g_sra=g_sra,

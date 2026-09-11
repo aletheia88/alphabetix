@@ -36,9 +36,30 @@ class SpikeProbe(GeneralProbe):
 
 
 class CurrentProbe(GeneralProbe):
-    """Record current of all neurons at time t."""
+    """Record total current of all neurons at time t."""
 
     def __init__(self, attribute: str = "current"):
+        super().__init__(attribute)
+
+
+class SynapticCurrentProbe(GeneralProbe):
+    """Record synaptic current of all neurons at time t."""
+
+    def __init__(self, attribute: str = "synaptic_current"):
+        super().__init__(attribute)
+
+
+class BackgroundCurrentProbe(GeneralProbe):
+    """Record cortical background current of all neurons at time t."""
+
+    def __init__(self, attribute: str = "background_current"):
+        super().__init__(attribute)
+
+
+class TaskInputCurrentProbe(GeneralProbe):
+    """Record task-driven input current of all neurons at time t."""
+
+    def __init__(self, attribute: str = "task_input_current"):
         super().__init__(attribute)
 
 
