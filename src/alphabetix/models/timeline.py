@@ -208,7 +208,12 @@ class Timeline:
         return self.segment_labels[int(self.lookup_index(t))]
 
     def get_inputs(self, dt: float) -> TimelineInputs:
-        num_timesteps = round(self.total_time / dt)
+        """Assemble input encodings at a simulation timestep.
+
+        Discretizes the full timeline at intervals of `dt` and returns the
+        temporal and category encodings associated with each timestep.
+        """
+        num_timesteps = self.total_time // dt
         times = jnp.arange(num_timesteps, dtype=jnp.float32) * dt
         segment_indices = jnp.searchsorted(
             self.segment_ends,
