@@ -55,12 +55,14 @@ class Timeline:
         delay → (0, 0, 0)
     """
 
+    prestim_time: int
     cue_time: int
     delay_time: int
     query_time: int
     sequence: str
     query: int
     vocabulary: tuple[str, ...] | None
+    event_structure: list[str]
 
     num_categories: int = field(init=False)
     num_cues: int = field(init=False)
@@ -79,6 +81,15 @@ class Timeline:
     def __post_init__(self):
         if not self.sequence:
             raise ValueError("`sequence` must be non-empty.")
+        if "cue" in self.event_structure and self.event_structure.count("cue") != len(
+            self.sequence
+        ):
+            raise ValueError(
+                "number of `cue` in `event_structure` must match the sequence length."
+            )
+        allowed_events = {"delay", "prestim", "cue", "query"}
+        if invalid := set(self.event_structure) - allowed_events:
+            raise ValueError(f"Invalid event(s): {invalid}")
         if self.cue_time <= 0 or self.delay_time <= 0 or self.query_time <= 0:
             raise ValueError("`cue_time`, `delay_time`, `query_time` must be positive.")
         if not 1 <= self.query <= len(self.sequence):
@@ -114,22 +125,28 @@ class Timeline:
         ends = []
 
         t = 0
-
-        for i, item in enumerate(self.sequence):
-            labels.append("delay")
+        cue_index = 0
+        for i, event in enumerate(self.event_structure):
             starts.append(t)
-            t += self.delay_time
-            ends.append(t)
 
-            labels.append(item)
-            starts.append(t)
-            t += self.cue_time
-            ends.append(t)
+            if event == "prestim":
+                labels.append("prestim")
+                t += self.prestim_time
 
-        labels.append("query")
-        starts.append(t)
-        t += self.query_time
-        ends.append(t)
+            elif event == "cue":
+                labels.append(self.sequence[cue_index])
+                cue_index += 1
+                t += self.cue_time
+
+            elif event == "delay":
+                labels.append("delay")
+                t += self.delay_time
+
+            elif event == "query":
+                labels.append("query")
+                t += self.query_time
+
+            ends.append(t)
 
         self.segment_labels = tuple(labels)
         self.segment_starts = jnp.array(starts)
@@ -151,12 +168,22 @@ class Timeline:
                 category_rows.append(
                     jnp.zeros((self.num_categories,), dtype=jnp.float32)
                 )
+
             elif label == "query":
                 temporal_rows.append(eye_temporal[self.query])
                 category_rows.append(
                     jnp.zeros((self.num_categories,), dtype=jnp.float32)
                 )
+
+            elif label == "prestim":
+                # prestim period has no topdown and no sensory input
+                temporal_rows.append(jnp.zeros((self.num_cues,), dtype=jnp.float32))
+                category_rows.append(
+                    jnp.zeros((self.num_categories,), dtype=jnp.float32)
+                )
+
             else:
+                # cue period has both topdpwn and sensory input
                 cue_position += 1
                 temporal_rows.append(eye_temporal[cue_position])
                 category_rows.append(eye_category[self.category_to_index[label]])
