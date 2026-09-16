@@ -100,7 +100,7 @@ class Timeline:
         if self.vocabulary is None:
             self.categories = tuple(sorted(set(self.sequence)))
         else:
-            self.categories = tuple(self.vocabulary)
+            self.categories = tuple(sorted(set(self.vocabulary)))
             if not self.categories:
                 raise ValueError("`vocabulary` must be non-empty.")
             if len(set(self.categories)) != len(self.categories):
