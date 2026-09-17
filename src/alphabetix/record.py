@@ -11,7 +11,7 @@ class Probe(ABC):
         pass
 
 
-class GeneralProbe(Probe):
+class GenericProbe(Probe):
     """Generic probe for recording one attribute from neurons."""
 
     def __init__(self, attribute: str):
@@ -21,56 +21,56 @@ class GeneralProbe(Probe):
         return getattr(neurons, self.attribute)
 
 
-class VoltageProbe(GeneralProbe):
+class VoltageProbe(GenericProbe):
     """Record voltage of all neurons at time t."""
 
     def __init__(self, attribute: str = "voltage"):
         super().__init__(attribute)
 
 
-class SpikeProbe(GeneralProbe):
+class SpikeProbe(GenericProbe):
     """Record spike of all neurons at time t."""
 
     def __init__(self, attribute: str = "spike"):
         super().__init__(attribute)
 
 
-class CurrentProbe(GeneralProbe):
+class CurrentProbe(GenericProbe):
     """Record total current of all neurons at time t."""
 
     def __init__(self, attribute: str = "current"):
         super().__init__(attribute)
 
 
-class SynapticCurrentProbe(GeneralProbe):
+class SynapticCurrentProbe(GenericProbe):
     """Record synaptic current of all neurons at time t."""
 
     def __init__(self, attribute: str = "synaptic_current"):
         super().__init__(attribute)
 
 
-class BackgroundCurrentProbe(GeneralProbe):
+class BackgroundCurrentProbe(GenericProbe):
     """Record cortical background current of all neurons at time t."""
 
     def __init__(self, attribute: str = "background_current"):
         super().__init__(attribute)
 
 
-class TaskInputCurrentProbe(GeneralProbe):
+class TaskInputCurrentProbe(GenericProbe):
     """Record task-driven input current of all neurons at time t."""
 
     def __init__(self, attribute: str = "task_input_current"):
         super().__init__(attribute)
 
 
-class ActivationProbe(GeneralProbe):
+class ActivationProbe(GenericProbe):
     """Record activation of all neurons at time t."""
 
     def __init__(self, attribute: str = "activation"):
         super().__init__(attribute)
 
 
-class RefractoryTimeProbe(GeneralProbe):
+class RefractoryTimeProbe(GenericProbe):
     """Record activation of all neurons at time t."""
 
     def __init__(self, attribute: str = "refractory_time_remaining"):
