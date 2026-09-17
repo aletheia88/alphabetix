@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import optax
 
-from .models import Model, Network, Neuron, TimelineInputs
+from .models import DecoderModel, Model, Network, Neuron, TimelineInputs
 from .module import Module
 from .record import Probes
 from .simulate import run_simulation
@@ -54,7 +54,7 @@ class StepLog(Module):
 def train_step(
     params: Model,
     static: Model,
-    decoder_loss_function: Callable[[Model, jax.Array, jax.Array], jax.Array],
+    decoder_loss_function: Callable[[DecoderModel, jax.Array, jax.Array], jax.Array],
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
