@@ -7,7 +7,7 @@ from .swiglu import SwiGLU
 
 
 class DecoderModel(Module):
-    layers: tuple
+    layers: tuple = Module.param()
     timesteps: jax.Array = Module.static()
     num_timesteps: int = Module.static()
     num_neurons: int = Module.static()
