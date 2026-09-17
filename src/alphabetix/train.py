@@ -144,7 +144,7 @@ def log_iteration(
         "connectivity_grads": lambda: decoder_grads.network_model.connectivity,
         "sensory_model_grads": lambda: decoder_grads.input_model.sensory_model,
         "topdown_model_grads": lambda: decoder_grads.input_model.topdown_model,
-        "decoder_model_grads": lambda: decoder_grads.input_model.decoder_model,
+        "decoder_model_grads": lambda: decoder_grads.decoder_model,
         "mean_bg_current_grads": lambda: (decoder_grads.network_model.mean_bg_current),
         "sigma_bg_current_grads": lambda: decoder_grads.network_model.sigma_bg,
         # optimizer-transformed updates
