@@ -22,12 +22,12 @@ class StepLog(Module):
     decoder_loss: jax.Array | None = None
 
     # diagnostics for homeostasis
-    mean_bg_current: jax.Array | None = None
-    sigma_bg: jax.Array | None = None
+    mu_bg_current: jax.Array | None = None
+    sigma_bg_current: jax.Array | None = None
 
     # raw gradients
     connectivity_grads: jax.Array | None = None
-    mean_bg_current_grads: jax.Array | None = None
+    mu_bg_current_grads: jax.Array | None = None
     sigma_bg_current_grads: jax.Array | None = None
     sensory_model_grads: jax.Array | None = None
     topdown_model_grads: jax.Array | None = None
@@ -35,7 +35,7 @@ class StepLog(Module):
 
     # optimizer-transformed updates
     connectivity_updates: jax.Array | None = None
-    mean_bg_current_updates: jax.Array | None = None
+    mu_bg_current_updates: jax.Array | None = None
     sigma_bg_current_updates: jax.Array | None = None
     sensory_model_updates: jax.Array | None = None
     topdown_model_updates: jax.Array | None = None
@@ -138,22 +138,22 @@ def log_iteration(
         ),
         # objectives
         "decoder_loss": lambda: decoder_loss,
-        "mean_bg_current": lambda: model.network_model.mean_bg_current,
-        "sigma_bg": lambda: model.network_model.sigma_bg,
+        "mu_bg_current": lambda: model.network_model.mu_bg_current,
+        "sigma_bg_current": lambda: model.network_model.sigma_bg_current,
         # raw gradients
         "connectivity_grads": lambda: decoder_grads.network_model.connectivity,
         "sensory_model_grads": lambda: decoder_grads.input_model.sensory_model,
         "topdown_model_grads": lambda: decoder_grads.input_model.topdown_model,
         "decoder_model_grads": lambda: decoder_grads.decoder_model,
-        "mean_bg_current_grads": lambda: (decoder_grads.network_model.mean_bg_current),
-        "sigma_bg_current_grads": lambda: decoder_grads.network_model.sigma_bg,
+        "mu_bg_current_grads": lambda: (decoder_grads.network_model.mu_bg_current),
+        "sigma_bg_current_grads": lambda: decoder_grads.network_model.sigma_bg_current,
         # optimizer-transformed updates
         "connectivity_updates": lambda: updates.network_model.connectivity,
         "sensory_model_updates": lambda: updates.input_model.sensory_model,
         "topdown_model_updates": lambda: updates.input_model.topdown_model,
         "decoder_model_updates": lambda: updates.decoder_model,
-        "mean_bg_current_updates": lambda: updates.network_model.mean_bg_current,
-        "sigma_bg_current_updates": lambda: updates.network_model.sigma_bg,
+        "mu_bg_current_updates": lambda: updates.network_model.mu_bg_current,
+        "sigma_bg_current_updates": lambda: updates.network_model.sigma_bg_current,
     }
 
     unknown_fields = set(log_fields) - set(value_getters)
@@ -189,10 +189,10 @@ def _constrain_connectivity(
 
 def _constrain_bg_parameters(params, min_sigma=1e-6):
     """Keep the OU stationary standard deviation non-negative."""
-    sigma_bg = jnp.maximum(params.network_model.sigma_bg, min_sigma)
+    sigma_bg_current = jnp.maximum(params.network_model.sigma_bg_current, min_sigma)
 
     return eqx.tree_at(
-        lambda m: m.network_model.sigma_bg,
+        lambda m: m.network_model.sigma_bg_current,
         params,
-        sigma_bg,
+        sigma_bg_current,
     )

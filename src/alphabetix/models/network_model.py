@@ -6,8 +6,8 @@ from ..module import Module
 
 class NetworkModel(Module):
     # parameters for background currents
-    mean_bg_current: jax.Array = Module.param()
-    sigma_bg: jax.Array = Module.param()
+    mu_bg_current: jax.Array = Module.param()
+    sigma_bg_current: jax.Array = Module.param()
     tau_bg: jnp.float32 = Module.static()
 
     # connectivity: conductance weights, unit nS
@@ -66,7 +66,9 @@ class NetworkModel(Module):
 
         previous_bg_currents = neurons.background_current
 
-        noise_scale = self.sigma_bg * jnp.sqrt(-jnp.expm1(-2.0 * dt / self.tau_bg))
+        noise_scale = self.sigma_bg_current * jnp.sqrt(
+            -jnp.expm1(-2.0 * dt / self.tau_bg)
+        )
 
         key0, key1 = jax.random.split(network.noise_key)
         noise = jax.random.normal(
@@ -77,8 +79,8 @@ class NetworkModel(Module):
 
         decay = jnp.exp(-dt / self.tau_bg)
         bg_currents = (
-            self.mean_bg_current
-            + decay * (previous_bg_currents - self.mean_bg_current)
+            self.mu_bg_current
+            + decay * (previous_bg_currents - self.mu_bg_current)
             + noise_scale * noise
         )
         exc_currents = exc_activations * (neurons.voltage - self.exc_reversal_potential)
