@@ -20,6 +20,8 @@ class StepLog(Module):
 
     # training objectives
     decoder_loss: jax.Array | None = None
+    decoder_probs: jax.Array | None = None
+    decoder_targets: jax.Array | None = None
 
     # diagnostics for homeostasis
     mu_bg_current: jax.Array | None = None
@@ -54,7 +56,9 @@ class StepLog(Module):
 def train_step(
     params: Model,
     static: Model,
-    decoder_loss_function: Callable[[DecoderModel, jax.Array, jax.Array], jax.Array],
+    decoder_loss_function: Callable[
+        [DecoderModel, jax.Array, jax.Array], tuple[jax.Array, StepLog]
+    ],
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
@@ -78,17 +82,19 @@ def train_step(
             probes,
             timeline_inputs,
         )
-        decoder_loss = decoder_loss_function(
+        decoder_loss, step_log = decoder_loss_function(
             model.decoder_model,
             measurements,
             target,
         )
 
-        return decoder_loss, (measurements, final_network, final_neurons)
+        return decoder_loss, (step_log, measurements, final_network, final_neurons)
 
-    (decoder_loss, (measurements, final_network, final_neurons)), decoder_grads = (
-        jax.value_and_grad(decoder_loss_grad, has_aux=True)(params)
-    )
+    (
+        (decoder_loss, (step_log, measurements, final_network, final_neurons)),
+        decoder_grads,
+    ) = jax.value_and_grad(decoder_loss_grad, has_aux=True)(params)
+
     updates, opt_state = optimizer.update(
         decoder_grads,
         opt_state,
@@ -103,6 +109,7 @@ def train_step(
     # log specified training outcomes / diagnostics
     model = eqx.combine(params, static)
     step_log = log_iteration(
+        step_log,
         model,
         timeline_inputs,
         decoder_loss,
@@ -122,6 +129,7 @@ def train_step(
 
 
 def log_iteration(
+    step_log: StepLog,
     model: Model,
     timeline_inputs: TimelineInputs,
     decoder_loss: jax.Array,
@@ -133,9 +141,6 @@ def log_iteration(
     value_getters = {
         # post-update network-level parameters
         "connectivity": lambda: model.network_model.connectivity,
-        "task_input_current": lambda: model.input_model.compute_currents(
-            timeline_inputs
-        ),
         # objectives
         "decoder_loss": lambda: decoder_loss,
         "mu_bg_current": lambda: model.network_model.mu_bg_current,
@@ -166,7 +171,8 @@ def log_iteration(
         )
 
     logged_values = {name: value_getters[name]() for name in log_fields}
-    return StepLog(**logged_values)
+
+    return step_log.replace(**logged_values)
 
 
 def _constrain_connectivity(
