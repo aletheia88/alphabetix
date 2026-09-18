@@ -17,14 +17,12 @@ class Module(eqx.Module):
             **kwargs,
         )
 
-    def replace(
-        self,
-        **kwargs,
-    ):
+    def replace(self, **kwargs):
         return eqx.tree_at(
             lambda c: tuple(getattr(c, name) for name in kwargs.keys()),
             self,
             tuple(kwargs.values()),
+            is_leaf=lambda x: x is None,
         )
 
     def partition(self):
