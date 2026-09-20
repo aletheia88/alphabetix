@@ -67,33 +67,88 @@ def train_step(
     timeline_inputs: TimelineInputs,
     target: jax.Array,
     log_fields: tuple[str, ...],
-    noise_key: jax.Array,
+    noise_keys: jax.Array,
 ):
-    # update key for sampling noise
-    initial_network = initial_network.replace(noise_key=noise_key)
-
     def decoder_loss_grad(params):
         model = eqx.combine(params, static)
-        # simulate full-trial dynamics
-        measurements, final_network, final_neurons = run_simulation(
-            model,
-            initial_network,
-            initial_neurons,
-            probes,
-            timeline_inputs,
-        )
-        decoder_loss, step_log = decoder_loss_function(
-            model.decoder_model,
-            measurements,
-            target,
-        )
 
-        return decoder_loss, (step_log, measurements, final_network, final_neurons)
+        def simulate_one(noise_key):
+            """Simulate full-trial dynamics for once.
+
+            Each simulation receives everything the same; i.e., timeline
+            inputs, model parameters, network and neurons states.
+            But a different OU-noise realization.
+            """
+            simulation_initial_network = initial_network.replace(noise_key=noise_key)
+
+            measurements, final_network, final_neurons = run_simulation(
+                model,
+                simulation_initial_network,
+                initial_neurons,
+                probes,
+                timeline_inputs,
+            )
+            decoder_loss, step_log = decoder_loss_function(
+                model.decoder_model,
+                measurements,
+                target,
+            )
+
+            return decoder_loss, (step_log, measurements, final_network, final_neurons)
+
+        (
+            simulation_losses,
+            (
+                batched_step_logs,
+                batched_measurements,
+                batched_final_networks,
+                batched_final_neurons,
+            ),
+        ) = jax.vmap(simulate_one)(noise_keys)
+
+        # average the loss over samples within a batch
+        decoder_loss = jnp.mean(simulation_losses)
+
+        return decoder_loss, (
+            batched_step_logs,
+            batched_measurements,
+            batched_final_networks,
+            batched_final_neurons,
+        )
 
     (
-        (decoder_loss, (step_log, measurements, final_network, final_neurons)),
+        (
+            decoder_loss,
+            (
+                batched_step_logs,
+                batched_measurements,
+                batched_final_networks,
+                batched_final_neurons,
+            ),
+        ),
         decoder_grads,
     ) = jax.value_and_grad(decoder_loss_grad, has_aux=True)(params)
+
+    # average per-simulation decoder diagonistics
+    # fields that are None remain None
+    step_log = jax.tree_util.tree_map(
+        lambda value: jnp.mean(value, axis=0),
+        batched_step_logs,
+    )
+
+    # keep one simulation for measurements and states
+    measurements = jax.tree_util.tree_map(
+        lambda value: value[0],
+        batched_measurements,
+    )
+    final_network = jax.tree_util.tree_map(
+        lambda value: value[0],
+        batched_final_networks,
+    )
+    final_neurons = jax.tree_util.tree_map(
+        lambda value: value[0],
+        batched_final_neurons,
+    )
 
     updates, opt_state = optimizer.update(
         decoder_grads,
