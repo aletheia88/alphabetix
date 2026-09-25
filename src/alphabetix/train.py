@@ -47,6 +47,7 @@ class StepLog(Module):
 @partial(
     jax.jit,
     static_argnames=(
+        "static",
         "decoder_loss_function",
         "probes",
         "optimizer",
