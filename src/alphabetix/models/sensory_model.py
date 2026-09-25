@@ -19,7 +19,20 @@ class SensoryModel(Module):
     ):
         self.num_categories = num_categories
         self.num_neurons = num_neurons
-        self.layer = eqx.nn.Linear(num_categories, num_neurons, key=key)
+
+        key_layer, key_weight = jax.random.split(key)
+        self.layer = eqx.nn.Linear(num_categories, num_neurons, key=key_layer)
+        weights = jax.random.uniform(
+            key_weight,
+            shape=(num_neurons, num_categories),
+            minval=-100.0,
+            maxval=0.0,
+        )
+        self.layer = eqx.tree_at(
+            lambda layer: layer.weight,
+            self.layer,
+            weights,
+        )
 
     def __call__(self, x: jax.Array) -> jax.Array:
         if x.ndim != 1:
