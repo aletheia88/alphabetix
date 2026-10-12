@@ -5,20 +5,22 @@ from ..module import Module
 
 
 class NetworkModel(Module):
-    # parameters for background currents
+    # homeostatic background parameters
     mu_bg_current: jax.Array = Module.param()
     sigma_bg_current: jax.Array = Module.param()
     tau_bg: jnp.float32 = Module.static()
 
     # connectivity: conductance weights, unit nS
     # shape: (num_neurons, num_neurons)
-    # rows: post-synaptic neurons
-    # columns: pre-synaptic neurons
+    # rows: post-synaptic neurons; columns: pre-synaptic neurons
     connectivity: jax.Array = Module.param()
 
-    u_total: jnp.float32 = Module.static(default=0.3)
-    tau_f: jnp.float32 = Module.static(default=1600)  # msec
-    tau_d: jnp.float32 = Module.static(default=50)  # msec
+    # short-term plasticity parameters
+    u_total: jax.Array = Module.param(default=0.5)
+    tau_f: jax.Array = Module.param(default=1600.0)  # msec
+    tau_d: jax.Array = Module.param(default=50.0)  # msec
+    facilitation_increment: jnp.float32 = Module.param(default=0.75)
+
     exc_reversal_potential: jnp.float32 = Module.static(default=0.0)  # mV
     inh_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
 
@@ -55,7 +57,7 @@ class NetworkModel(Module):
         fired_exc = neurons.spike * exc_mask
 
         u_temp = last_u + dt * (self.u_total - last_u) / self.tau_f
-        u = u_temp + 0.75 * (1 - u_temp) * fired_exc
+        u = u_temp + self.facilitation_increment * (1 - u_temp) * fired_exc
         x_temp = last_x + dt * (1 - last_x) / self.tau_d
         x = x_temp - u_temp * x_temp * fired_exc
 
