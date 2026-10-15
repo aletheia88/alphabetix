@@ -1,7 +1,6 @@
 __version__ = "0.0.1"
 
-from . import train
-
+from . import interface, train
 from .models import (
     DecoderModel,
     ExplicitInputModel,
@@ -15,15 +14,19 @@ from .models import (
 )
 from .record import (
     ActivationProbe,
+    BackgroundCurrentProbe,
     CurrentProbe,
     Probes,
     SpikeProbe,
+    SynapticCurrentProbe,
+    TaskInputCurrentProbe,
     VoltageProbe,
 )
 from .simulate import run_simulation
 
 __all__ = [
     "ActivationProbe",
+    "BackgroundCurrentProbe",
     "CurrentProbe",
     "DecoderModel",
     "ExplicitInputModel",
@@ -35,8 +38,11 @@ __all__ = [
     "NeuronModel",
     "Probes",
     "SpikeProbe",
+    "SynapticCurrentProbe",
+    "TaskInputCurrentProbe",
     "Timeline",
     "VoltageProbe",
+    "interface",
     "run_simulation",
     "train",
 ]
