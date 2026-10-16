@@ -1,6 +1,6 @@
 __version__ = "0.0.1"
 
-from . import interface, train
+from . import dataset, interface, train
 from .models import (
     DecoderModel,
     ExplicitInputModel,
@@ -42,6 +42,7 @@ __all__ = [
     "TaskInputCurrentProbe",
     "Timeline",
     "VoltageProbe",
+    "dataset",
     "interface",
     "run_simulation",
     "train",
