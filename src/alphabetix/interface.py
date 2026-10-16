@@ -58,7 +58,13 @@ class Settings:
     network_noise_seed: int
 
 
-def build(dataset, decode_timesteps, connectivity, settings: Settings, probes: Probes):
+def build(
+    dataset,
+    decode_timesteps,
+    connectivity,
+    settings: Settings,
+    probes: Probes,
+):
     """Return model and initial states, using the experiment's requested probes."""
     counts = settings.counts
     n = sum(counts)
@@ -133,7 +139,7 @@ def build(dataset, decode_timesteps, connectivity, settings: Settings, probes: P
         ),
     )
     decoder = DecoderModel(
-        jnp.asarray(decode_timesteps),
+        decode_timesteps,
         n,
         dataset.num_categories,
         settings.decoder_hidden_size,

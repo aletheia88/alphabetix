@@ -1,4 +1,3 @@
-import equinox as eqx
 import jax
 import jax.numpy as jnp
 
@@ -8,7 +7,7 @@ from .swiglu import SwiGLU
 
 class DecoderModel(Module):
     layers: tuple = Module.param()
-    timesteps: jax.Array = Module.static()
+    timesteps: tuple[int, ...] = Module.static()
     num_timesteps: int = Module.static()
     num_neurons: int = Module.static()
     num_categories: int = Module.static()
@@ -16,7 +15,7 @@ class DecoderModel(Module):
 
     def __init__(
         self,
-        timesteps: jax.Array,
+        timesteps: tuple[int, ...],
         num_neurons: int,
         num_categories: int,
         hidden_size: int,
