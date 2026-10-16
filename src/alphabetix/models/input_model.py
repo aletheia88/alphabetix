@@ -57,10 +57,14 @@ class TimelineInputModel(InputModel):
 
         self.sensory_model = SensoryModel(
             num_categories,
-            num_exc_neurons,
+            self.num_neurons,
             key=key1,
         )
-        self.topdown_model = TopDownModel(self.num_cues, num_inh_neurons, key=key2)
+        self.topdown_model = TopDownModel(
+            self.num_cues,
+            self.num_neurons,
+            key=key2,
+        )
 
     def compute_currents(self, timeline_inputs):
         if timeline_inputs is None:
@@ -77,7 +81,4 @@ class TimelineInputModel(InputModel):
         # NOTE: as only exc, inh receive sensory, topdown respectively, we can do this:
         # [excitatory neurons | inhibitory neurons]
         # [ sensory input     | top-down input      ]
-        return jnp.concatenate(
-            (sensory_inputs, topdown_inputs),
-            axis=-1,
-        )
+        return jnp.add(sensory_inputs, topdown_inputs)
