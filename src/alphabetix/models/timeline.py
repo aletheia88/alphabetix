@@ -13,60 +13,27 @@ class TimelineInputs(NamedTuple):
 
 @dataclass
 class Timeline:
-    """Timeline for structured working-memory tasks with time-indexed event lookup.
+    """Encode prestim, cues, delays, and zero-based queries.
 
-    This class represents a task in which a sequence of items is presented over time,
-    interleaved with delay periods. It provides a fast lookup from a given time `t`
-    to an "event" representation consisting of:
-        (1) a temporal encoding (position in the sequence)
-        (2) a category encoding (identity of the item)
-
-    (1) Temporal Encoding
-    ---------------------
-    Encodes the position of a cue in the sequence.
-
-        - Dimension: num_cues = num_categories + 1
-        - Index 0: always corresponds to a delay period
-        - Indices 1..N: correspond to the 1st, 2nd, ..., N-th cue
-
-    Example (sequence = "cab"):
-        writing period:
-        delay → (1, 0, 0, 0)
-        c     → (0, 1, 0, 0)
-        a     → (0, 0, 1, 0)
-        b     → (0, 0, 0, 1)
-
-        reading period:
-        query → (0, 0, 0, 1)
-        (i.e., querying for the identity of the 3rd token -> b)
-
-    (2) Category Encoding
-    ---------------------
-    Encodes the identity of the item.
-
-        - Dimension: num_categories = number of unique items in `sequence`
-        - Categories are assigned indices in alphabetical order
-        - Delay periods map to the zero vector
-
-    Example (sequence = "cab"):
-        a → (1, 0, 0)
-        b → (0, 1, 0)
-        c → (0, 0, 1)
-        delay → (0, 0, 0)
+    Both encodings have num_categories + 1 coordinates. Sensory categories use
+    the first coordinates; the final coordinate is the empty-information token.
+    Temporal encodings select cue addresses, with the last coordinate reserved
+    for delays. Prestim temporal input is zero.
     """
 
     prestim_time: int
     cue_time: int
     delay_time: int
     query_time: int
+
     sequence: str
     query: int
-    vocabulary: tuple[str, ...] | None
+
+    vocabulary: tuple[str, ...]
     event_structure: list[str]
 
-    num_categories: int = field(init=False)
-    num_cues: int = field(init=False)
-    categories: tuple[str, ...] = field(init=False)
+    num_categories: int = field(init=False)  # number of different contents
+    num_cues: int = field(init=False)  # number of "addresses" types
     category_to_index: dict[str, int] = field(init=False)
 
     segment_labels: tuple[str, ...] = field(init=False)
@@ -96,28 +63,24 @@ class Timeline:
             raise ValueError(
                 f"`query` must lie in [1, {len(self.sequence)}], got {self.query}."
             )
+        self.num_categories = len(self.vocabulary)
+        # the number of addresses includes the `prestim` period
+        self.num_cues = self.num_categories + 1
 
-        if self.vocabulary is None:
-            self.categories = tuple(sorted(set(self.sequence)))
-        else:
-            self.categories = tuple(sorted(set(self.vocabulary)))
-            if not self.categories:
-                raise ValueError("`vocabulary` must be non-empty.")
-            if len(set(self.categories)) != len(self.categories):
-                raise ValueError("`vocabulary` must not contain duplicates.")
+        if not self.vocabulary:
+            raise ValueError("`vocabulary` must be non-empty.")
+        if len(set(self.vocabulary)) != len(self.vocabulary):
+            raise ValueError("`vocabulary` must not contain duplicates.")
 
-            unknown = set(self.sequence) - set(self.categories)
-            if unknown:
-                raise ValueError(
-                    "Every item in `sequence` must occur in `vocabulary`; "
-                    f"unknown items: {sorted(unknown)}."
-                )
-
-        self.num_categories = len(self.categories)
-        self.num_cues = len(self.sequence) + 1
+        unknown = set(self.sequence) - set(self.vocabulary)
+        if unknown:
+            raise ValueError(
+                "Every item in `sequence` must occur in `vocabulary`; "
+                f"unknown items: {sorted(unknown)}."
+            )
 
         self.category_to_index = {
-            category: i for i, category in enumerate(self.categories)
+            category: i for i, category in enumerate(self.vocabulary)
         }
 
         labels = []
@@ -154,7 +117,7 @@ class Timeline:
         self.total_time = t
 
         eye_temporal = jnp.eye(self.num_cues, dtype=jnp.float32)
-        eye_category = jnp.eye(self.num_categories, dtype=jnp.float32)
+        eye_category = jnp.eye(self.num_cues, dtype=jnp.float32)
 
         temporal_rows = []
         category_rows = []
@@ -162,31 +125,23 @@ class Timeline:
         cue_position = 0
 
         for label in self.segment_labels:
-            if label == "delay":
-                # delay period has topdown but zero sensory input
-                temporal_rows.append(eye_temporal[0])
-                category_rows.append(
-                    jnp.zeros((self.num_categories,), dtype=jnp.float32)
-                )
+            if label == "prestim":
+                zeros = jnp.zeros((self.num_cues,), dtype=jnp.float32)
+                temporal_rows.append(zeros)
+                category_rows.append(eye_category[-1])
+
+            elif label == "delay":
+                temporal_rows.append(eye_temporal[-1])
+                category_rows.append(eye_category[-1])
 
             elif label == "query":
                 temporal_rows.append(eye_temporal[self.query])
-                category_rows.append(
-                    jnp.zeros((self.num_categories,), dtype=jnp.float32)
-                )
-
-            elif label == "prestim":
-                # prestim period has no topdown and no sensory input
-                temporal_rows.append(jnp.zeros((self.num_cues,), dtype=jnp.float32))
-                category_rows.append(
-                    jnp.zeros((self.num_categories,), dtype=jnp.float32)
-                )
+                category_rows.append(eye_category[-1])
 
             else:
-                # cue period has both topdpwn and sensory input
-                cue_position += 1
                 temporal_rows.append(eye_temporal[cue_position])
                 category_rows.append(eye_category[self.category_to_index[label]])
+                cue_position += 1
 
         self.temporal_table = jnp.stack(temporal_rows)
         self.category_table = jnp.stack(category_rows)
