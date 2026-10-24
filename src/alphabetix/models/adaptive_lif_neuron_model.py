@@ -6,16 +6,15 @@ from .neuron_model import NeuronModel
 
 
 class AdaptiveNeuronModel(NeuronModel):
+    tau_sra: float = Module.param()  # msec
+    delta_g_sra: jnp.float32 = Module.param()  # nS
+    tau_refractory: jnp.float32 = Module.static(default=2.0)  # msec
+    sra_reversal_potential: jnp.float32 = Module.static(default=-90.0)  # mV
+
     membrane_capacitance: jnp.float32 = Module.static(default=200.0)  # pF
     leaky_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
     spiking_threshold: jnp.float32 = Module.static(default=-50.0)  # mV
     reset_voltage: jnp.float32 = Module.static(default=-60.0)  # mV
-
-    # parameters for relative refractory effect
-    tau_sra: float = Module.static(default=8.0)  # msec
-    tau_refractory: jnp.float32 = Module.static(default=2.0)  # msec
-    delta_g_sra: jnp.float32 = Module.static(default=100.0)  # nS
-    sra_reversal_potential: jnp.float32 = Module.static(default=-90.0)  # mV
 
     def update(self, neuron, dt):
         c_m = self.membrane_capacitance

@@ -16,10 +16,10 @@ class NetworkModel(Module):
     connectivity: jax.Array = Module.param()
 
     # short-term plasticity parameters
-    u_total: jax.Array = Module.param(default=0.5)
-    tau_f: jax.Array = Module.param(default=1600.0)  # msec
-    tau_d: jax.Array = Module.param(default=50.0)  # msec
-    facilitation_increment: jnp.float32 = Module.param(default=0.75)
+    u_total: jax.Array = Module.param()
+    tau_f: jax.Array = Module.param()  # msec
+    tau_d: jax.Array = Module.param()  # msec
+    facilitation_increment: jnp.float32 = Module.param()
 
     exc_reversal_potential: jnp.float32 = Module.static(default=0.0)  # mV
     inh_reversal_potential: jnp.float32 = Module.static(default=-70.0)  # mV
@@ -88,8 +88,7 @@ class NetworkModel(Module):
         exc_currents = exc_activations * (neurons.voltage - self.exc_reversal_potential)
         inh_currents = inh_activations * (neurons.voltage - self.inh_reversal_potential)
         synaptic_currents = exc_currents + inh_currents
-
-        currents = exc_currents + inh_currents + input_currents + bg_currents
+        currents = synaptic_currents + input_currents + bg_currents
 
         next_network = network.replace(
             synapse_activations=next_synapse_activations,
