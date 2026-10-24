@@ -15,10 +15,9 @@ class TimelineInputs(NamedTuple):
 class Timeline:
     """Encode prestim, cues, delays, and zero-based queries.
 
-    Both encodings have num_categories + 1 coordinates. Sensory categories use
-    the first coordinates; the final coordinate is the empty-information token.
-    Temporal encodings select cue addresses, with the last coordinate reserved
-    for delays. Prestim temporal input is zero.
+    Sensory tokens have vocabulary_size + 1 coordinates, including the final
+    empty-information coordinate. Top-down tokens have sequence_size coordinates
+    for zero-based cue addresses; prestim and delays use zero temporal vectors.
     """
 
     prestim_time: int
@@ -32,8 +31,10 @@ class Timeline:
     vocabulary: tuple[str, ...]
     event_structure: list[str]
 
-    num_categories: int = field(init=False)  # number of different contents
-    num_cues: int = field(init=False)  # number of "addresses" types
+    vocabulary_size: int = field(init=False)
+    sequence_size: int = field(init=False)
+    sensory_token_size: int = field(init=False)
+    topdown_token_size: int = field(init=False)
     category_to_index: dict[str, int] = field(init=False)
 
     segment_labels: tuple[str, ...] = field(init=False)
@@ -66,9 +67,10 @@ class Timeline:
                 f"`query` must lie in [0, {len(self.sequence) - 1}], got {self.query}."
             )
 
-        self.num_categories = len(self.vocabulary)
-        # the number of addresses includes the `prestim` period
-        self.num_cues = self.num_categories + 1
+        self.vocabulary_size = len(self.vocabulary)
+        self.sequence_size = len(self.sequence)
+        self.sensory_token_size = self.vocabulary_size + 1
+        self.topdown_token_size = self.sequence_size
 
         if not self.vocabulary:
             raise ValueError("`vocabulary` must be non-empty.")
@@ -119,8 +121,8 @@ class Timeline:
         self.segment_ends = jnp.array(ends)
         self.total_time = t
 
-        eye_temporal = jnp.eye(self.num_cues, dtype=jnp.float32)
-        eye_category = jnp.eye(self.num_cues, dtype=jnp.float32)
+        eye_temporal = jnp.eye(self.topdown_token_size, dtype=jnp.float32)
+        eye_category = jnp.eye(self.sensory_token_size, dtype=jnp.float32)
 
         temporal_rows = []
         category_rows = []
@@ -129,12 +131,14 @@ class Timeline:
 
         for label in self.segment_labels:
             if label == "prestim":
-                zeros = jnp.zeros((self.num_cues,), dtype=jnp.float32)
+                zeros = jnp.zeros((self.topdown_token_size,), dtype=jnp.float32)
                 temporal_rows.append(zeros)
                 category_rows.append(eye_category[-1])
 
             elif label == "delay":
-                temporal_rows.append(eye_temporal[-1])
+                temporal_rows.append(
+                    jnp.zeros((self.topdown_token_size,), dtype=jnp.float32)
+                )
                 category_rows.append(eye_category[-1])
 
             elif label == "query":

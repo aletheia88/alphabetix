@@ -57,6 +57,10 @@ class Settings:
     decoder_seed: int
     network_noise_seed: int
 
+    # Accepted for existing TOMLs; the bias-free layers do not use these.
+    sensory_bias_range: tuple[float, float] = (0.0, 0.0)
+    topdown_bias_range: tuple[float, float] = (0.0, 0.0)
+
 
 def build(
     dataset,
@@ -114,10 +118,10 @@ def build(
     )
 
     inputs = TimelineInputModel(
-        dataset.num_cues,
-        dataset.num_categories,
-        counts[0],
-        n - counts[0],
+        vocabulary_size=dataset.vocabulary_size,
+        sequence_size=dataset.sequence_size,
+        num_exc_neurons=counts[0],
+        num_inh_neurons=n - counts[0],
         key=input_key,
     )
     inputs = inputs.replace(
@@ -141,7 +145,7 @@ def build(
     decoder = DecoderModel(
         decode_timesteps,
         n,
-        dataset.num_categories,
+        dataset.vocabulary_size,
         settings.decoder_hidden_size,
         key=decoder_key,
     )

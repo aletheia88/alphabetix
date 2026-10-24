@@ -29,8 +29,8 @@ class TimelineDataset:
             timeline.get_inputs(dt) for timeline in timelines
         )
         # stack all encodings:
-        # temporal encodings: (num_examples, T, num_cues)
-        # category encodings: (num_examples, T, num_categories)
+        # temporal encodings: (num_examples, T, topdown_token_size)
+        # category encodings: (num_examples, T, sensory_token_size)
         inputs = jax.tree_util.tree_map(
             lambda *leaves: jnp.stack(leaves),
             *all_timeline_encodings,
@@ -44,8 +44,8 @@ class TimelineDataset:
         """Return the temporal and category encodings for one timeline.
 
         e.g., dataset[7] -> TimelineInputs(
-        temporal_encodings=...,  # (T, num_cues)
-        category_encodings=...,  # (T, num_categories))
+        temporal_encodings=...,  # (T, topdown_token_size)
+        category_encodings=...,  # (T, sensory_token_size))
 
         e.g., dataset.timelines[7].sequence
         """
@@ -56,9 +56,17 @@ class TimelineDataset:
         return self.inputs.temporal_encodings.shape[1]
 
     @property
-    def num_cues(self) -> int:
+    def vocabulary_size(self) -> int:
+        return self.timelines[0].vocabulary_size
+
+    @property
+    def sequence_size(self) -> int:
+        return self.timelines[0].sequence_size
+
+    @property
+    def topdown_token_size(self) -> int:
         return self.inputs.temporal_encodings.shape[2]
 
     @property
-    def num_categories(self) -> int:
+    def sensory_token_size(self) -> int:
         return self.inputs.category_encodings.shape[2]
