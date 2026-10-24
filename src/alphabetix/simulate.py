@@ -16,7 +16,11 @@ def run_simulation(
     inputs = model.input_model.compute_currents(timeline_inputs)
 
     return run_simulation_on_inputs(
-        model, inputs, initial_network, initial_neurons, probes
+        model,
+        inputs,
+        initial_network,
+        initial_neurons,
+        probes,
     )
 
 
@@ -54,7 +58,7 @@ def run_simulation_on_inputs(
 
     init_carry = (initial_network, initial_neurons)
     (final_network, final_neurons), measurements = jax.lax.scan(
-        scan_fn,
+        jax.checkpoint(scan_fn),
         init_carry,
         inputs,
     )
