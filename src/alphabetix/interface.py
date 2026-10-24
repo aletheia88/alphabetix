@@ -37,29 +37,15 @@ class Settings:
     tau_f_ms: float
     tau_d_ms: float
     facilitation_increment: float
-    exc_reversal_mv: float
-    inh_reversal_mv: float
-    capacitance_pf: float
-    leak_reversal_mv: float
-    spike_threshold_mv: float
-    reset_voltage_mv: float
-    refractory_ms: float
     adaptation_tau_ms: float
     adaptation_increment_ns: float
-    adaptation_reversal_mv: float
     sensory_weight_range: tuple[float, float]
-    sensory_bias_range: tuple[float, float]
     topdown_weight_range: tuple[float, float]
-    topdown_bias_range: tuple[float, float]
     decoder_hidden_size: int
     position_seed: int
     input_seed: int
     decoder_seed: int
     network_noise_seed: int
-
-    # Accepted for existing TOMLs; the bias-free layers do not use these.
-    sensory_bias_range: tuple[float, float] = (0.0, 0.0)
-    topdown_bias_range: tuple[float, float] = (0.0, 0.0)
 
 
 def build(
@@ -70,6 +56,10 @@ def build(
     probes: Probes,
 ):
     """Return model and initial states, using the experiment's requested probes."""
+    neuron_model = AdaptiveNeuronModel(
+        tau_sra=jnp.asarray(settings.adaptation_tau_ms),
+        delta_g_sra=jnp.asarray(settings.adaptation_increment_ns),
+    )
     counts = settings.counts
     n = sum(counts)
     types = jnp.asarray(
@@ -91,7 +81,7 @@ def build(
         ],
         dtype=jnp.float32,
     )
-    spikes = (voltages >= settings.spike_threshold_mv).astype(jnp.float32)
+    spikes = (voltages >= neuron_model.spiking_threshold).astype(jnp.float32)
     position_key = jax.random.PRNGKey(settings.position_seed)
     input_key = jax.random.PRNGKey(settings.input_seed)
     sensory_key, topdown_key = jax.random.split(input_key)
@@ -113,8 +103,6 @@ def build(
         tau_f=jnp.asarray(settings.tau_f_ms),
         tau_d=jnp.asarray(settings.tau_d_ms),
         facilitation_increment=jnp.asarray(settings.facilitation_increment),
-        exc_reversal_potential=settings.exc_reversal_mv,
-        inh_reversal_potential=settings.inh_reversal_mv,
     )
 
     inputs = TimelineInputModel(
@@ -129,7 +117,6 @@ def build(
             layer=_init_linear(
                 inputs.sensory_model.layer,
                 settings.sensory_weight_range,
-                settings.sensory_bias_range,
                 sensory_key,
             )
         ),
@@ -137,7 +124,6 @@ def build(
             layer=_init_linear(
                 inputs.topdown_model.layer,
                 settings.topdown_weight_range,
-                settings.topdown_bias_range,
                 topdown_key,
             )
         ),
@@ -149,16 +135,6 @@ def build(
         settings.decoder_hidden_size,
         key=decoder_key,
     )
-    neuron_model = AdaptiveNeuronModel(
-        membrane_capacitance=settings.capacitance_pf,
-        leaky_reversal_potential=settings.leak_reversal_mv,
-        spiking_threshold=settings.spike_threshold_mv,
-        reset_voltage=settings.reset_voltage_mv,
-        tau_sra=settings.adaptation_tau_ms,
-        tau_refractory=settings.refractory_ms,
-        delta_g_sra=settings.adaptation_increment_ns,
-        sra_reversal_potential=settings.adaptation_reversal_mv,
-    )
     model = Model(decoder, inputs, network_model, neuron_model, settings.dt_ms)
 
     initial_neurons = jax.vmap(Neuron)(
@@ -168,7 +144,7 @@ def build(
         tau_membrane=membrane_taus,
         voltage=voltages,
         spike=spikes,
-        refractory_time_remaining=spikes * settings.refractory_ms,
+        refractory_time_remaining=spikes * neuron_model.tau_refractory,
         utilization=jnp.full((n,), settings.initial_utilization),
         resource=jnp.full((n,), settings.initial_resource),
         g_sra=jnp.full((n,), settings.initial_g_sra_ns),
@@ -208,15 +184,15 @@ def _vector(value, size):
     return jnp.broadcast_to(value, (size,)) if value.ndim == 0 else value
 
 
-def _init_linear(layer, weight_range, bias_range, key):
-    weight_key, bias_key = jax.random.split(key)
+def _init_linear(layer, weight_range, key):
     weight = jax.random.uniform(
-        weight_key, layer.weight.shape, minval=weight_range[0], maxval=weight_range[1]
+        key,
+        layer.weight.shape,
+        minval=weight_range[0],
+        maxval=weight_range[1],
     )
-    bias = jax.random.uniform(
-        bias_key, layer.bias.shape, minval=bias_range[0], maxval=bias_range[1]
-    )
-    return eqx.tree_at(lambda x: (x.weight, x.bias), layer, (weight, bias))
+
+    return eqx.tree_at(lambda x: x.weight, layer, weight)
 
 
 def _path_name(path):
