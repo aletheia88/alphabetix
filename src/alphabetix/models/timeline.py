@@ -57,12 +57,15 @@ class Timeline:
         allowed_events = {"delay", "prestim", "cue", "query"}
         if invalid := set(self.event_structure) - allowed_events:
             raise ValueError(f"Invalid event(s): {invalid}")
-        if self.cue_time <= 0 or self.delay_time <= 0 or self.query_time <= 0:
-            raise ValueError("`cue_time`, `delay_time`, `query_time` must be positive.")
-        if not 1 <= self.query <= len(self.sequence):
+        if self.cue_time < 0 or self.delay_time < 0 or self.query_time < 0:
             raise ValueError(
-                f"`query` must lie in [1, {len(self.sequence)}], got {self.query}."
+                "`cue_time`, `delay_time`, `query_time` must be non-negative."
             )
+        if not 0 <= self.query < len(self.sequence):
+            raise ValueError(
+                f"`query` must lie in [0, {len(self.sequence) - 1}], got {self.query}."
+            )
+
         self.num_categories = len(self.vocabulary)
         # the number of addresses includes the `prestim` period
         self.num_cues = self.num_categories + 1
