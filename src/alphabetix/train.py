@@ -139,13 +139,18 @@ def _train_step(
     updates, optimizer_state = optimizer.update(gradients, optimizer_state, params)
     params = optax.apply_updates(params, updates)
 
-    # apply parameters constraints
-    params = _constrain_connectivity(params)
-    params = _constrain_bg_parameters(params)
+    # apply constraints
+    for model_name, model_constraints in constraints.items():
+        model = getattr(params, model_name)
+        constrained = {
+            name: jnp.clip(getattr(model, name), *bounds)
+            for name, bounds in model_constraints.items()
+            if getattr(model, name) is not None
+        }
+        params = params.replace(**{model_name: model.replace(**constrained)})
 
-    # log specified training outcomes / diagnostics
-    model = eqx.combine(params, static)
-    step_log = log_iteration(
+    model = eqx.combine(params, fixed_arrays, fixed)
+    step_log = _log_iteration(
         step_log,
         model,
         timeline_inputs,
@@ -164,14 +169,14 @@ def _train_step(
     )
 
 
-def log_iteration(
+def _log_iteration(
     step_log: StepLog,
     model: Model,
     timeline_inputs: TimelineInputs,
     decoder_loss: jax.Array,
     decoder_grads: Model,
     updates: Model,
-    log_fields: tuple[str, ...],
+    log_fields: list[str],
 ) -> StepLog:
     """Create a StepLog containing only the requested fields."""
     value_getters = {
@@ -209,32 +214,3 @@ def log_iteration(
     logged_values = {name: value_getters[name]() for name in log_fields}
 
     return step_log.replace(**logged_values)
-
-
-def _constrain_connectivity(
-    params,
-    connection_mask=None,
-    min_value=0.0,
-):
-    connectivity = params.network_model.connectivity
-    connectivity = jnp.maximum(connectivity, min_value)
-
-    if connection_mask is not None:
-        connectivity = connectivity * connection_mask
-
-    return eqx.tree_at(
-        lambda m: m.network_model.connectivity,
-        params,
-        connectivity,
-    )
-
-
-def _constrain_bg_parameters(params, min_sigma=1e-6):
-    """Keep the OU stationary standard deviation non-negative."""
-    sigma_bg_current = jnp.maximum(params.network_model.sigma_bg_current, min_sigma)
-
-    return eqx.tree_at(
-        lambda m: m.network_model.sigma_bg_current,
-        params,
-        sigma_bg_current,
-    )
