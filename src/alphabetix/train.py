@@ -123,68 +123,20 @@ def _train_step(
             loss, step_log = (
                 result if isinstance(result, tuple) else (result, StepLog())
             )
+            return loss, (step_log, measurements, final_network, final_neurons)
 
-            return decoder_loss, (step_log, measurements, final_network, final_neurons)
+        losses, diagnostics = jax.lax.map(simulate_one, noise_keys)
+        return jnp.mean(losses), diagnostics
 
-        (
-            simulation_losses,
-            (
-                batched_step_logs,
-                batched_measurements,
-                batched_final_networks,
-                batched_final_neurons,
-            ),
-        ) = jax.vmap(simulate_one)(noise_keys)
+    (loss, diagnostics), gradients = jax.value_and_grad(objective, has_aux=True)(params)
 
-        # average the loss over samples within a batch
-        decoder_loss = jnp.mean(simulation_losses)
-
-        return decoder_loss, (
-            batched_step_logs,
-            batched_measurements,
-            batched_final_networks,
-            batched_final_neurons,
-        )
-
-    (
-        (
-            decoder_loss,
-            (
-                batched_step_logs,
-                batched_measurements,
-                batched_final_networks,
-                batched_final_neurons,
-            ),
-        ),
-        decoder_grads,
-    ) = jax.value_and_grad(decoder_loss_grad, has_aux=True)(params)
-
-    # average per-simulation decoder diagonistics
-    # fields that are None remain None
-    step_log = jax.tree_util.tree_map(
-        lambda value: jnp.mean(value, axis=0),
-        batched_step_logs,
+    batched_logs, *batched_states = diagnostics
+    step_log = jax.tree.map(lambda value: jnp.mean(value, axis=0), batched_logs)
+    measurements, final_network, final_neurons = jax.tree.map(
+        lambda value: value[0], batched_states
     )
 
-    # keep one simulation for measurements and states
-    measurements = jax.tree_util.tree_map(
-        lambda value: value[0],
-        batched_measurements,
-    )
-    final_network = jax.tree_util.tree_map(
-        lambda value: value[0],
-        batched_final_networks,
-    )
-    final_neurons = jax.tree_util.tree_map(
-        lambda value: value[0],
-        batched_final_neurons,
-    )
-
-    updates, opt_state = optimizer.update(
-        decoder_grads,
-        opt_state,
-        params,
-    )
+    updates, optimizer_state = optimizer.update(gradients, optimizer_state, params)
     params = optax.apply_updates(params, updates)
 
     # apply parameters constraints
