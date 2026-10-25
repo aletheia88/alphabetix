@@ -44,16 +44,6 @@ class StepLog(Module):
     decoder_model_updates: jax.Array | None = None
 
 
-@partial(
-    jax.jit,
-    static_argnames=(
-        "static",
-        "decoder_loss_function",
-        "probes",
-        "optimizer",
-        "log_fields",
-    ),
-)
 def train_step(
     params: Model,
     fixed: Model,
@@ -61,29 +51,70 @@ def train_step(
     initial_neurons: Neuron,
     probes: Probes,
     optimizer: optax.GradientTransformation,
-    opt_state: optax.OptState,
+    optimizer_state: optax.OptState,
     timeline_inputs: TimelineInputs,
     loss_function: Callable[
         [Model, dict[str, jax.Array]],
         jax.Array | tuple[jax.Array, StepLog],
     ],
     noise_keys: jax.Array,
+    *,
+    constraints: dict[str, dict[str, Sequence[float]]],
+    log_fields: Sequence[str] = (),
 ):
-    def decoder_loss_grad(params):
-        model = eqx.combine(params, static)
+    """Updated parameters and apply constraints provided by experiments."""
+    # separate frozen arrays and python metadata
+    fixed_arrays, fixed_static = eqx.partition(fixed, eqx.is_array)
+    return _train_step(
+        params,
+        fixed_arrays,
+        fixed_static,
+        initial_network,
+        initial_neurons,
+        probes,
+        optimizer,
+        optimizer_state,
+        timeline_inputs,
+        loss_function,
+        noise_keys,
+        constraints=constraints,
+        log_fields=tuple(log_fields),
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "fixed",
+        "probes",
+        "optimizer",
+        "loss_function",
+        "log_fields",
+    ),
+)
+def _train_step(
+    params,
+    fixed_arrays,
+    fixed,
+    initial_network,
+    initial_neurons,
+    probes,
+    optimizer,
+    optimizer_state,
+    timeline_inputs,
+    loss_function,
+    noise_keys,
+    *,
+    constraints,
+    log_fields,
+):
+    def objective(candidate):
+        model = eqx.combine(candidate, fixed_arrays, fixed)
 
         def simulate_one(noise_key):
-            """Simulate full-trial dynamics for once.
-
-            Each simulation receives everything the same; i.e., timeline
-            inputs, model parameters, network and neurons states.
-            But a different OU-noise realization.
-            """
-            simulation_initial_network = initial_network.replace(noise_key=noise_key)
-
             measurements, final_network, final_neurons = run_simulation(
                 model,
-                simulation_initial_network,
+                initial_network.replace(noise_key=noise_key),
                 initial_neurons,
                 probes,
                 timeline_inputs,
@@ -173,7 +204,7 @@ def train_step(
     )
     return (
         params,
-        opt_state,
+        optimizer_state,
         step_log,
         measurements,
         final_network,
