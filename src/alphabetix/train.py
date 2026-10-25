@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 
 import equinox as eqx
@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import optax
 
-from .models import DecoderModel, Model, Network, Neuron, TimelineInputs
+from .models import Model, Network, Neuron, TimelineInputs
 from .module import Module
 from .record import Probes
 from .simulate import run_simulation
@@ -56,18 +56,17 @@ class StepLog(Module):
 )
 def train_step(
     params: Model,
-    static: Model,
-    decoder_loss_function: Callable[
-        [DecoderModel, jax.Array, jax.Array], tuple[jax.Array, StepLog]
-    ],
+    fixed: Model,
     initial_network: Network,
     initial_neurons: Neuron,
     probes: Probes,
     optimizer: optax.GradientTransformation,
     opt_state: optax.OptState,
     timeline_inputs: TimelineInputs,
-    target: jax.Array,
-    log_fields: tuple[str, ...],
+    loss_function: Callable[
+        [Model, dict[str, jax.Array]],
+        jax.Array | tuple[jax.Array, StepLog],
+    ],
     noise_keys: jax.Array,
 ):
     def decoder_loss_grad(params):
@@ -89,10 +88,9 @@ def train_step(
                 probes,
                 timeline_inputs,
             )
-            decoder_loss, step_log = decoder_loss_function(
-                model.decoder_model,
-                measurements,
-                target,
+            result = loss_function(model, measurements)
+            loss, step_log = (
+                result if isinstance(result, tuple) else (result, StepLog())
             )
 
             return decoder_loss, (step_log, measurements, final_network, final_neurons)
@@ -168,12 +166,11 @@ def train_step(
         step_log,
         model,
         timeline_inputs,
-        decoder_loss,
-        decoder_grads,
+        loss,
+        gradients,
         updates,
         log_fields,
     )
-
     return (
         params,
         opt_state,
