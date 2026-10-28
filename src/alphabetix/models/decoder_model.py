@@ -1,17 +1,16 @@
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 
 from ..module import Module
-from .swiglu import SwiGLU
 
 
 class DecoderModel(Module):
-    layers: tuple = Module.param()
+    layer: eqx.nn.Linear = Module.param()
     timesteps: tuple[int, ...] = Module.static()
     num_timesteps: int = Module.static()
     num_neurons: int = Module.static()
     num_categories: int = Module.static()
-    hidden_size: int = Module.static()
 
     def __init__(
         self,
@@ -26,24 +25,17 @@ class DecoderModel(Module):
         self.num_timesteps = len(timesteps)
         self.num_neurons = num_neurons
         self.num_categories = num_categories
-        self.hidden_size = hidden_size
 
         input_size = self.num_timesteps * num_neurons
-
-        self.layers = (
-            SwiGLU(
-                input_size,
-                hidden_size,
-                out_features=num_categories,
-                key=key,
-            ),
+        self.layer = eqx.nn.Linear(
+            in_features=input_size,
+            out_features=num_categories,
+            key=key,
         )
 
     def __call__(self, spikes: jax.Array) -> jax.Array:
         x = jnp.ravel(spikes)
-        for layer in self.layers:
-            x = layer(x)
-        logits = x
+        logits = self.layer(x)
 
         return logits
 
