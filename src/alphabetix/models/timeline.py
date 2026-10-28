@@ -135,20 +135,18 @@ class Timeline:
                 temporal_rows.append(zeros)
                 category_rows.append(eye_category[-1])
 
+            elif label.isalpha() and len(label) == 1:
+                temporal_rows.append(eye_temporal[cue_position])
+                category_rows.append(eye_category[self.category_to_index[label]])
+                cue_position += 1
+
             elif label == "delay":
-                temporal_rows.append(
-                    jnp.zeros((self.topdown_token_size,), dtype=jnp.float32)
-                )
+                temporal_rows.append(eye_temporal[cue_position])
                 category_rows.append(eye_category[-1])
 
             elif label == "query":
                 temporal_rows.append(eye_temporal[self.query])
                 category_rows.append(eye_category[-1])
-
-            else:
-                temporal_rows.append(eye_temporal[cue_position])
-                category_rows.append(eye_category[self.category_to_index[label]])
-                cue_position += 1
 
         self.temporal_table = jnp.stack(temporal_rows)
         self.category_table = jnp.stack(category_rows)
