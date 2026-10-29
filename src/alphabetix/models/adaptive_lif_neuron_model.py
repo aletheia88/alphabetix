@@ -6,7 +6,7 @@ from .neuron_model import NeuronModel
 
 
 class AdaptiveNeuronModel(NeuronModel):
-    tau_sra: float = Module.param()  # msec
+    tau_sra: jnp.float32 = Module.param()  # msec
     delta_g_sra: jnp.float32 = Module.param()  # nS
     tau_refractory: jnp.float32 = Module.static(default=2.0)  # msec
     sra_reversal_potential: jnp.float32 = Module.static(default=-90.0)  # mV
