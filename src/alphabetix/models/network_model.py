@@ -8,7 +8,7 @@ class NetworkModel(Module):
     # homeostatic background parameters
     mu_bg_current: jax.Array = Module.param()
     sigma_bg_current: jax.Array = Module.param()
-    tau_bg: jnp.float32 = Module.static()
+    tau_bg: jnp.float32 = Module.static(default=10.5)
 
     # connectivity: conductance weights, unit nS
     # shape: (num_neurons, num_neurons)

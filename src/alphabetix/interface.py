@@ -97,7 +97,6 @@ def build(
     network_model = NetworkModel(
         mu_bg_current=_vector(settings.background_mean_pa, n),
         sigma_bg_current=_vector(settings.background_sigma_pa, n),
-        tau_bg=settings.background_tau_ms,
         connectivity=jnp.asarray(connectivity, dtype=jnp.float32),
         u_total=jnp.asarray(settings.u_total),
         tau_f=jnp.asarray(settings.tau_f_ms),
