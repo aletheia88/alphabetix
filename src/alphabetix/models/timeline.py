@@ -17,7 +17,8 @@ class Timeline:
 
     Sensory tokens have vocabulary_size + 1 coordinates, including the final
     empty-information coordinate. Top-down tokens have sequence_size coordinates
-    for zero-based cue addresses; prestim and delays use zero temporal vectors.
+    for zero-based cue addresses. Delays retain the preceding cue address;
+    prestim uses a zero temporal vector.
     """
 
     prestim_time: int
@@ -141,7 +142,11 @@ class Timeline:
                 cue_position += 1
 
             elif label == "delay":
-                temporal_rows.append(eye_temporal[cue_position])
+                temporal_rows.append(
+                    eye_temporal[cue_position - 1]
+                    if cue_position
+                    else jnp.zeros((self.topdown_token_size,), dtype=jnp.float32)
+                )
                 category_rows.append(eye_category[-1])
 
             elif label == "query":
