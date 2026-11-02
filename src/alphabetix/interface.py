@@ -46,11 +46,12 @@ class Settings:
     input_seed: int
     decoder_seed: int
     network_noise_seed: int
+    background_tau_ms: float | None = None
 
 
 def build(
     dataset,
-    decode_timesteps,
+    num_timesteps: int,
     connectivity,
     settings: Settings,
     probes: Probes,
@@ -128,8 +129,8 @@ def build(
         ),
     )
     decoder = DecoderModel(
-        decode_timesteps,
-        n,
+        num_timesteps,
+        num_neurons,
         dataset.vocabulary_size,
         settings.decoder_hidden_size,
         key=decoder_key,

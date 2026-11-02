@@ -7,22 +7,20 @@ from ..module import Module
 
 class DecoderModel(Module):
     layer: eqx.nn.Linear = Module.param()
-    timesteps: tuple[int, ...] = Module.static()
     num_timesteps: int = Module.static()
     num_neurons: int = Module.static()
     num_categories: int = Module.static()
 
     def __init__(
         self,
-        timesteps: tuple[int, ...],
+        num_timesteps: int,
         num_neurons: int,
         num_categories: int,
         hidden_size: int,
         *,
         key: jax.Array,
     ):
-        self.timesteps = timesteps
-        self.num_timesteps = len(timesteps)
+        self.num_timesteps = num_timesteps
         self.num_neurons = num_neurons
         self.num_categories = num_categories
 

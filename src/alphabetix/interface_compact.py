@@ -7,7 +7,7 @@ from .models.compact_network_model import CompactNetworkModel
 
 def build(
     dataset,
-    decode_timesteps,
+    num_timesteps: int,
     connectivity,
     settings,
     probes,
@@ -17,7 +17,7 @@ def build(
     """Build from TOML settings, with the original dense backend also available."""
     model, network, neurons, probes = interface.build(
         dataset,
-        decode_timesteps,
+        num_timesteps,
         connectivity,
         interface.Settings(**settings),
         probes,
