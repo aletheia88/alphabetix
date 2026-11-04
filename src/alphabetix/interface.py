@@ -31,7 +31,6 @@ class Settings:
     initial_g_sra_ns: float
     background_mean_pa: float | tuple[float, ...]
     background_sigma_pa: float | tuple[float, ...]
-    background_tau_ms: float
     synapse_tau_ms: tuple[tuple[float, ...], ...]
     u_total: float
     tau_f_ms: float
