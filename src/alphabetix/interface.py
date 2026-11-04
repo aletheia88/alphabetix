@@ -61,7 +61,7 @@ def build(
         delta_g_sra=jnp.asarray(settings.adaptation_increment_ns),
     )
     counts = settings.counts
-    n = sum(counts)
+    num_neurons = sum(counts)
     types = jnp.asarray(
         [kind for kind, count in enumerate(counts, start=1) for _ in range(count)]
     )
@@ -91,12 +91,12 @@ def build(
     synapse_taus = type_tau[types[:, None] - 1, types[None, :] - 1]
     network = Network(
         synapse_taus=synapse_taus,
-        synapse_activations=jnp.zeros((n, n)),
+        synapse_activations=jnp.zeros((num_neurons, num_neurons)),
         noise_key=jax.random.PRNGKey(settings.network_noise_seed),
     )
     network_model = NetworkModel(
-        mu_bg_current=_vector(settings.background_mean_pa, n),
-        sigma_bg_current=_vector(settings.background_sigma_pa, n),
+        mu_bg_current=_vector(settings.background_mean_pa, num_neurons),
+        sigma_bg_current=_vector(settings.background_sigma_pa, num_neurons),
         connectivity=jnp.asarray(connectivity, dtype=jnp.float32),
         u_total=jnp.asarray(settings.u_total),
         tau_f=jnp.asarray(settings.tau_f_ms),
@@ -108,7 +108,7 @@ def build(
         vocabulary_size=dataset.vocabulary_size,
         sequence_size=dataset.sequence_size,
         num_exc_neurons=counts[0],
-        num_inh_neurons=n - counts[0],
+        num_inh_neurons=num_neurons - counts[0],
         key=input_key,
     )
     inputs = inputs.replace(
@@ -137,16 +137,16 @@ def build(
     model = Model(decoder, inputs, network_model, neuron_model, settings.dt_ms)
 
     initial_neurons = jax.vmap(Neuron)(
-        position=jax.random.uniform(position_key, (n, 2)),
+        position=jax.random.uniform(position_key, (num_neurons, 2)),
         sign=signs,
         type=types,
         tau_membrane=membrane_taus,
         voltage=voltages,
         spike=spikes,
         refractory_time_remaining=spikes * neuron_model.tau_refractory,
-        utilization=jnp.full((n,), settings.initial_utilization),
-        resource=jnp.full((n,), settings.initial_resource),
-        g_sra=jnp.full((n,), settings.initial_g_sra_ns),
+        utilization=jnp.full((num_neurons,), settings.initial_utilization),
+        resource=jnp.full((num_neurons,), settings.initial_resource),
+        g_sra=jnp.full((num_neurons,), settings.initial_g_sra_ns),
     )
     return model, network, initial_neurons, probes
 
