@@ -28,17 +28,19 @@ class SensoryModel(Module):
             key=key,
         )
 
-    def __call__(self, x: jax.Array) -> jax.Array:
-        if x.shape != (self.sensory_token_size,):
+    def __call__(self, category_encoding: jax.Array) -> jax.Array:
+        if category_encoding.shape != (self.sensory_token_size,):
             raise ValueError(
                 f"Expected sensory encoding shape {(self.sensory_token_size,)}, "
-                f"got {x.shape}."
+                f"got {category_encoding.shape}."
             )
 
-        return self.layer(x)
+        return self.layer(category_encoding)
 
 
-class ExplicitSensoryModel(Module):
+class ExplicitSensoryModel(SensoryModel):
+    """Learn category-specific currents through a fixed, presampled coding mask."""
+
     coding_matrix: jax.Array
     # unique_assignment: (num_neurons,)
     # neurons with non-unique coding is assigned -1
@@ -47,35 +49,50 @@ class ExplicitSensoryModel(Module):
     shared_mask: jax.Array
 
     vocabulary_size: int = Module.static()
-    sensory_token_size: int = Module.static()
-    num_neurons: int = Module.static()
-    percent_coding: float = Module.static()
-    percent_unique_coding: float = Module.static()
-    percent_shared_coding: float = Module.static()
-    stim_amplitude: float = Module.static()
 
     num_coding: int = Module.static()
     num_unique_coding: int = Module.static()
     num_shared_coding: int = Module.static()
 
+    percent_coding: float = Module.static(default=0.3)
+    percent_unique_coding: float = Module.static(default=0.7)
+    percent_shared_coding: float = Module.static(default=0.3)
+
     def __init__(
         self,
         vocabulary_size: int,
         num_neurons: int,
-        percent_coding: float,
-        percent_unique_coding: float,
-        percent_shared_coding: float,
-        stim_amplitude: float,
+        percent_coding: float = 0.3,
+        percent_unique_coding: float = 0.7,
+        percent_shared_coding: float = 0.3,
         *,
         key: jax.Array,
     ):
+        if (
+            not all(
+                0 <= value <= 1
+                for value in (
+                    percent_coding,
+                    percent_unique_coding,
+                    percent_shared_coding,
+                )
+            )
+            or abs(percent_unique_coding + percent_shared_coding - 1) > 1e-6
+        ):
+            raise ValueError(
+                "Coding percentages must be in [0, 1]; unique and shared must sum to 1."
+            )
+        if vocabulary_size < 1:
+            raise ValueError("vocabulary_size must be positive.")
+
+        coding_key, category_key, weight_key = jax.random.split(key, 3)
+
+        super().__init__(vocabulary_size, num_neurons, key=weight_key)
+
         self.vocabulary_size = vocabulary_size
-        self.sensory_token_size = vocabulary_size + 1
-        self.num_neurons = num_neurons
         self.percent_coding = percent_coding
         self.percent_unique_coding = percent_unique_coding
         self.percent_shared_coding = percent_shared_coding
-        self.stim_amplitude = stim_amplitude
 
         self.num_coding = int(num_neurons * percent_coding + 0.5)
         self.num_unique_coding = int(self.num_coding * percent_unique_coding + 0.5)
@@ -99,7 +116,6 @@ class ExplicitSensoryModel(Module):
         if self.num_shared_coding > 0 and self.vocabulary_size < 2:
             raise ValueError("Shared coding requires at least two categories.")
 
-        coding_key, category_key = jax.random.split(key)
         neuron_order = jax.random.permutation(coding_key, num_neurons)
         coding_indices = neuron_order[: self.num_coding]
         unique_indices = coding_indices[: self.num_unique_coding]
@@ -114,6 +130,7 @@ class ExplicitSensoryModel(Module):
             (self.sensory_token_size, num_neurons),
             dtype=jnp.bool_,
         )
+        # category index for neurons with unique encoding, -1 otherwise
         unique_assignment = jnp.full((num_neurons,), -1, dtype=jnp.int32)
 
         start = 0
@@ -142,6 +159,5 @@ class ExplicitSensoryModel(Module):
             raise ValueError(
                 f"Expected sensory encoding shape {(self.sensory_token_size,)}."
             )
-        return self.stim_amplitude * (
-            category_encoding @ self.coding_matrix.astype(jnp.float32)
-        )
+        weights = self.layer.weight * self.coding_matrix.T
+        return weights @ category_encoding

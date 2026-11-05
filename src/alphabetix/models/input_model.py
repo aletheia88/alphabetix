@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from ..module import Module
-from .sensory_model import SensoryModel
+from .sensory_model import ExplicitSensoryModel, SensoryModel
 from .timeline import TimelineInputs
 from .topdown_model import TopDownModel
 
@@ -56,7 +56,7 @@ class TimelineInputModel(InputModel):
 
         key1, key2 = jax.random.split(key)
 
-        self.sensory_model = SensoryModel(
+        self.sensory_model = ExplicitSensoryModel(
             self.vocabulary_size,
             self.num_neurons,
             key=key1,
