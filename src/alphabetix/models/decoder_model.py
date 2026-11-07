@@ -16,7 +16,6 @@ class DecoderModel(Module):
         num_timesteps: int,
         num_neurons: int,
         num_categories: int,
-        hidden_size: int,
         *,
         key: jax.Array,
     ):

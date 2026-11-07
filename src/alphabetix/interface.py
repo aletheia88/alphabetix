@@ -40,12 +40,12 @@ class Settings:
     adaptation_increment_ns: float
     sensory_weight_range: tuple[float, float]
     topdown_weight_range: tuple[float, float]
-    decoder_hidden_size: int
     position_seed: int
     input_seed: int
     decoder_seed: int
     network_noise_seed: int
     background_tau_ms: float | None = None
+    decoder_hidden_size: int | None = None  # Accepted for older experiment configs.
 
 
 def build(
@@ -131,7 +131,6 @@ def build(
         num_timesteps,
         num_neurons,
         dataset.vocabulary_size,
-        settings.decoder_hidden_size,
         key=decoder_key,
     )
     model = Model(decoder, inputs, network_model, neuron_model, settings.dt_ms)
