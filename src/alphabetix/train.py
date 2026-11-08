@@ -59,7 +59,7 @@ def train_step(
     ],
     noise_keys: jax.Array,
     *,
-    constraints: dict[str, dict[str, Sequence[float]]],
+    constraints: dict[str, dict[str, Sequence[float | jax.Array]]],
     log_fields: Sequence[str] = (),
 ):
     """Updated parameters and apply constraints provided by experiments."""
@@ -138,16 +138,7 @@ def _train_step(
 
     updates, optimizer_state = optimizer.update(gradients, optimizer_state, params)
     params = optax.apply_updates(params, updates)
-
-    # apply constraints
-    for model_name, model_constraints in constraints.items():
-        model = getattr(params, model_name)
-        constrained = {
-            name: jnp.clip(getattr(model, name), *bounds)
-            for name, bounds in model_constraints.items()
-            if getattr(model, name) is not None
-        }
-        params = params.replace(**{model_name: model.replace(**constrained)})
+    params = apply_constraints(params, constraints)
 
     model = eqx.combine(params, fixed_arrays, fixed)
     step_log = _log_iteration(
@@ -167,6 +158,23 @@ def _train_step(
         final_network,
         final_neurons,
     )
+
+
+def apply_constraints(params, constraints):
+    """Project selected fields onto their allowed bounds."""
+
+    def field(tree):
+        for component in (model_name + "." + name).split("."):
+            tree = getattr(tree, component)
+        return tree
+
+    for model_name, fields in constraints.items():
+        for name, bounds in fields.items():
+            value = field(params)
+            if value is not None:
+                params = eqx.tree_at(field, params, jnp.clip(value, *bounds))
+
+    return params
 
 
 def _log_iteration(
