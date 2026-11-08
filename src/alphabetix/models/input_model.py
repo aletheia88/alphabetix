@@ -58,7 +58,7 @@ class TimelineInputModel(InputModel):
 
         self.sensory_model = ExplicitSensoryModel(
             self.vocabulary_size,
-            self.num_neurons,
+            self.num_exc_neurons,
             key=key1,
         )
         self.topdown_model = TopDownModel(
@@ -78,8 +78,9 @@ class TimelineInputModel(InputModel):
         category = timeline_inputs.category_encodings
 
         sensory_inputs = jax.vmap(self.sensory_model)(category)
+        # add padding to Inh in case of that sensory inputs target only Exc
+        sensory_inputs = jnp.pad(
+            sensory_inputs, ((0, 0), (0, self.num_neurons - sensory_inputs.shape[1]))
+        )
         topdown_inputs = jax.vmap(self.topdown_model)(temporal)
-        # NOTE: as only exc, inh receive sensory, topdown respectively, we can do this:
-        # [excitatory neurons | inhibitory neurons]
-        # [ sensory input     | top-down input      ]
         return jnp.add(sensory_inputs, topdown_inputs)
