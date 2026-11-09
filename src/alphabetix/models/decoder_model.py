@@ -6,6 +6,8 @@ from ..module import Module
 
 
 class DecoderModel(Module):
+    """Predict one category from a flattened (time bins, neurons) matrix."""
+
     layer: eqx.nn.Linear = Module.param()
     num_timesteps: int = Module.static()
     num_neurons: int = Module.static()
@@ -41,3 +43,29 @@ class DecoderModel(Module):
         category_idx = jnp.argmax(logits)
 
         return jax.nn.one_hot(category_idx, self.num_categories)
+
+
+def sliding_window_rates(
+    spikes,
+    window_steps: int,
+    stride_steps: int,
+    dt: float,
+):
+    """Return (windows, neurons) rates in Hz; omit incomplete trailing windows.
+
+    Window and stride are fixed integer step counts when used under JIT.
+    """
+    if spikes.ndim != 2 or not 1 <= window_steps <= spikes.shape[0]:
+        raise ValueError(
+            "Expected (time, neurons) spikes and a window within the recording."
+        )
+    if stride_steps < 1:
+        raise ValueError("stride_steps must be positive.")
+
+    cumulative = jnp.concatenate(
+        [jnp.zeros_like(spikes[:1]), jnp.cumsum(spikes, axis=0)], axis=0
+    )
+    starts = jnp.arange(0, spikes.shape[0] - window_steps + 1, stride_steps)
+    counts = cumulative[starts + window_steps] - cumulative[starts]
+
+    return counts * (1000 / (window_steps * dt))
