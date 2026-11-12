@@ -63,7 +63,7 @@ class TimelineInputModel(InputModel):
         )
         self.topdown_model = TopDownModel(
             self.sequence_size,
-            self.num_neurons,
+            self.num_inh_neurons,
             key=key2,
         )
 
@@ -83,4 +83,8 @@ class TimelineInputModel(InputModel):
             sensory_inputs, ((0, 0), (0, self.num_neurons - sensory_inputs.shape[1]))
         )
         topdown_inputs = jax.vmap(self.topdown_model)(temporal)
+        # pad Exc neurons with zeros when top-down inputs target only Inh.
+        topdown_inputs = jnp.pad(
+            topdown_inputs, ((0, 0), (self.num_neurons - topdown_inputs.shape[1], 0))
+        )
         return jnp.add(sensory_inputs, topdown_inputs)
