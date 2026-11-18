@@ -17,6 +17,10 @@ class Neuron(Module):
     spike: jnp.float32 = 0.0  # either 1.0 or 0.0
     activation: jnp.float32 = 0.0
     background_current: jnp.float32 = 0.0
+    ampa_current: jnp.float32 = 0.0
+    nmda_current: jnp.float32 = 0.0
+    inhibitory_current: jnp.float32 = 0.0
+    adaptation_current: jnp.float32 = 0.0
     synaptic_current: jnp.float32 = 0.0
     task_input_current: jnp.float32 = 0.0
     current: jnp.float32 = 0.0
