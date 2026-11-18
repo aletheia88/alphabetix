@@ -25,33 +25,88 @@ class Settings:
     dt_ms: float
     counts: tuple[int, int, int, int]
     membrane_tau_ms: tuple[float, float, float, float]
+
     initial_voltage_mv: tuple[float, float, float, float]
     initial_utilization: float
     initial_resource: float
     initial_g_sra_ns: float
+
     background_mean_pa: float | tuple[float, ...]
     background_sigma_pa: float | tuple[float, ...]
+
     synapse_tau_ms: tuple[tuple[float, ...], ...]
-    u_total: float
     tau_f_ms: float
     tau_d_ms: float
-    facilitation_increment: float
+
     adaptation_tau_ms: float
+    background_tau_ms: float
+
+    u_total: float
+    facilitation_increment: float
     adaptation_increment_ns: float
+
     sensory_weight_range: tuple[float, float]
     topdown_weight_range: tuple[float, float]
+
     position_seed: int
     input_seed: int
     decoder_seed: int
     network_noise_seed: int
-    background_tau_ms: float | None = None
-    decoder_hidden_size: int | None = None  # Accepted for older experiment configs.
+
+    nmda_enabled: bool = True
+    exponential_decay_enabled: bool = True
+    stp_enabled: bool = True
+
+    tau_nmda_rise_ms: float = 2.0
+    tau_nmda_decay_ms: float = 100.0
+    nmda_alpha_per_ms: float = 0.5
+
+    ampa_gain: tuple[float, ...] = (1.0, 1.0, 1.0, 1.0)
+    nmda_gain: tuple[float, ...] = (0.0, 0.0, 0.0, 0.0)
+    magnesium_mm: float = 1.0
+
+    def __post_init__(self):
+        import math
+
+        positive = (
+            self.dt_ms,
+            self.tau_f_ms,
+            self.tau_d_ms,
+            self.tau_nmda_rise_ms,
+            self.tau_nmda_decay_ms,
+            self.nmda_alpha_per_ms,
+        )
+        if not all(math.isfinite(x) and x > 0 for x in positive):
+            raise ValueError(
+                "Time steps, time constants and NMDA alpha must be positive and finite."
+            )
+        for gains in (self.ampa_gain, self.nmda_gain):
+            if len(gains) != len(self.counts) or any(
+                not math.isfinite(x) or x < 0 for x in gains
+            ):
+                raise ValueError(
+                    "Receptor gains require one finite nonnegative value per population."
+                )
+
+        if not math.isfinite(self.magnesium_mm) or self.magnesium_mm < 0:
+            raise ValueError("Magnesium concentration must be finite and nonnegative.")
+        if any(
+            not math.isfinite(t) or t <= 0 for row in self.synapse_tau_ms for t in row
+        ):
+            raise ValueError("Synapse time constants must be positive and finite.")
+
+        if not self.exponential_decay_enabled and any(
+            self.dt_ms > t for row in self.synapse_tau_ms for t in row
+        ):
+            raise ValueError(
+                "Euler synapses require dt <= every synapse time constant."
+            )
 
 
 def build(
     dataset,
     num_timesteps: int,
-    connectivity,
+    connectivity: jax.Array,
     settings: Settings,
     probes: Probes,
 ):
@@ -89,19 +144,31 @@ def build(
 
     type_tau = jnp.asarray(settings.synapse_tau_ms, dtype=jnp.float32)
     synapse_taus = type_tau[types[:, None] - 1, types[None, :] - 1]
+
     network = Network(
         synapse_taus=synapse_taus,
         synapse_activations=jnp.zeros((num_neurons, num_neurons)),
         noise_key=jax.random.PRNGKey(settings.network_noise_seed),
+        nmda_rise=jnp.zeros((2, num_neurons)) if settings.nmda_enabled else None,
+        nmda_gate=jnp.zeros((2, num_neurons)) if settings.nmda_enabled else None,
     )
     network_model = NetworkModel(
-        mu_bg_current=_vector(settings.background_mean_pa, num_neurons),
-        sigma_bg_current=_vector(settings.background_sigma_pa, num_neurons),
+        mu_bg_current=_vector(settings.background_mean_pa, num_neurons, counts),
+        sigma_bg_current=_vector(settings.background_sigma_pa, num_neurons, counts),
         connectivity=jnp.asarray(connectivity, dtype=jnp.float32),
         u_total=jnp.asarray(settings.u_total),
-        tau_f=jnp.asarray(settings.tau_f_ms),
-        tau_d=jnp.asarray(settings.tau_d_ms),
+        tau_f=jnp.asarray(settings.tau_f_ms, dtype=jnp.float32),
+        tau_d=jnp.asarray(settings.tau_d_ms, dtype=jnp.float32),
         facilitation_increment=jnp.asarray(settings.facilitation_increment),
+        nmda_enabled=settings.nmda_enabled,
+        exponential_decay_enabled=settings.exponential_decay_enabled,
+        stp_enabled=settings.stp_enabled,
+        ampa_gain=jnp.repeat(jnp.asarray(settings.ampa_gain), jnp.asarray(counts)),
+        nmda_gain=jnp.repeat(jnp.asarray(settings.nmda_gain), jnp.asarray(counts)),
+        tau_nmda_rise_ms=settings.tau_nmda_rise_ms,
+        tau_nmda_decay_ms=settings.tau_nmda_decay_ms,
+        nmda_alpha_per_ms=settings.nmda_alpha_per_ms,
+        magnesium_mm=settings.magnesium_mm,
     )
 
     inputs = TimelineInputModel(
@@ -177,9 +244,18 @@ def partition_model(model, trainable_paths=None):
     return eqx.partition(model, mask)
 
 
-def _vector(value, size):
+def _vector(value, size, counts=None):
+    """Expand scalar or population settings, or preserve a per-neuron vector."""
     value = jnp.asarray(value, dtype=jnp.float32)
-    return jnp.broadcast_to(value, (size,)) if value.ndim == 0 else value
+    if value.ndim == 0:
+        return jnp.broadcast_to(value, (size,))
+    if value.shape == (size,):
+        return value
+    if counts is not None and value.shape == (len(counts),):
+        return jnp.repeat(value, jnp.asarray(counts))
+    raise ValueError(
+        "Expected a scalar, one value per population, or one value per neuron."
+    )
 
 
 def _init_linear(layer, weight_range, key):
