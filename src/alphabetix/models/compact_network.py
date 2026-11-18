@@ -37,6 +37,8 @@ class CompactNetwork(Network):
             synapse_taus=type_taus,
             synapse_activations=network.synapse_activations @ membership,
             noise_key=network.noise_key,
+            nmda_rise=network.nmda_rise,
+            nmda_gate=network.nmda_gate,
             neuron_groups=groups,
             group_signs=group_signs,
         )
