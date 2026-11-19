@@ -78,13 +78,20 @@ class TimelineInputModel(InputModel):
         category = timeline_inputs.category_encodings
 
         sensory_inputs = jax.vmap(self.sensory_model)(category)
-        # add padding to Inh in case of that sensory inputs target only Exc
-        sensory_inputs = jnp.pad(
-            sensory_inputs, ((0, 0), (0, self.num_neurons - sensory_inputs.shape[1]))
-        )
         topdown_inputs = jax.vmap(self.topdown_model)(temporal)
-        # pad Exc neurons with zeros when top-down inputs target only Inh.
-        topdown_inputs = jnp.pad(
-            topdown_inputs, ((0, 0), (self.num_neurons - topdown_inputs.shape[1], 0))
+        currents = jnp.zeros(
+            (category.shape[0], self.num_neurons), dtype=sensory_inputs.dtype
         )
-        return jnp.add(sensory_inputs, topdown_inputs)
+        currents = currents.at[:, self.target_indices("sensory_model")].add(
+            sensory_inputs
+        )
+        return currents.at[:, self.target_indices("topdown_model")].add(topdown_inputs)
+
+    def target_indices(self, component):
+        size = getattr(self, component).num_neurons
+        if component == "sensory_model":
+            return jnp.arange(size)
+        if component == "topdown_model":
+            return jnp.arange(self.num_neurons - size, self.num_neurons)
+
+        raise ValueError(f"Unknown input component: {component}")
