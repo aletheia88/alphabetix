@@ -55,16 +55,16 @@ class ExplicitSensoryModel(SensoryModel):
     num_shared_coding: int = Module.static()
 
     percent_coding: float = Module.static(default=0.3)
-    percent_unique_coding: float = Module.static(default=0.7)
-    percent_shared_coding: float = Module.static(default=0.3)
+    percent_unique_coding: float = Module.static(default=0.3)
+    percent_shared_coding: float = Module.static(default=0.7)
 
     def __init__(
         self,
         vocabulary_size: int,
         num_neurons: int,
         percent_coding: float = 0.3,
-        percent_unique_coding: float = 0.7,
-        percent_shared_coding: float = 0.3,
+        percent_unique_coding: float = 0.3,
+        percent_shared_coding: float = 0.7,
         *,
         key: jax.Array,
     ):
