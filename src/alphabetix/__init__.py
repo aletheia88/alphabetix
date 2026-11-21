@@ -13,6 +13,10 @@ from .models import (
     Timeline,
 )
 from .record import (
+    AMPACurrentProbe,
+    NMDACurrentProbe,
+    InhibitoryCurrentProbe,
+    AdaptationCurrentProbe,
     ActivationProbe,
     BackgroundCurrentProbe,
     CurrentProbe,
@@ -25,6 +29,10 @@ from .record import (
 from .simulate import run_simulation
 
 __all__ = [
+    "AMPACurrentProbe",
+    "NMDACurrentProbe",
+    "InhibitoryCurrentProbe",
+    "AdaptationCurrentProbe",
     "ActivationProbe",
     "BackgroundCurrentProbe",
     "CurrentProbe",

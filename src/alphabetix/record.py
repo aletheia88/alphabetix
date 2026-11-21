@@ -49,6 +49,26 @@ class SynapticCurrentProbe(GenericProbe):
         super().__init__(attribute)
 
 
+class AMPACurrentProbe(GenericProbe):
+    def __init__(self):
+        super().__init__("ampa_current")
+
+
+class NMDACurrentProbe(GenericProbe):
+    def __init__(self):
+        super().__init__("nmda_current")
+
+
+class InhibitoryCurrentProbe(GenericProbe):
+    def __init__(self):
+        super().__init__("inhibitory_current")
+
+
+class AdaptationCurrentProbe(GenericProbe):
+    def __init__(self):
+        super().__init__("adaptation_current")
+
+
 class BackgroundCurrentProbe(GenericProbe):
     """Record cortical background current of all neurons at time t."""
 
@@ -67,13 +87,6 @@ class ActivationProbe(GenericProbe):
     """Record activation of all neurons at time t."""
 
     def __init__(self, attribute: str = "activation"):
-        super().__init__(attribute)
-
-
-class RefractoryTimeProbe(GenericProbe):
-    """Record activation of all neurons at time t."""
-
-    def __init__(self, attribute: str = "refractory_time_remaining"):
         super().__init__(attribute)
 
 
