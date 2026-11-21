@@ -52,4 +52,12 @@ class Module(eqx.Module):
             lambda c: tuple(getattr(c, name) for name in leaves.keys()),
             self,
             tuple(leaves.values()),
+            is_leaf=lambda x: x is None,
         )
+
+    # def __hash__(self):
+    # return 0
+    # def add_to_hash(_hash, other):
+    #     return _hash + str(hash(other))
+    #
+    # return hash(jax.tree.reduce(add_to_hash, self, initializer=""))
