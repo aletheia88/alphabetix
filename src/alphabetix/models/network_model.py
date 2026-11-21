@@ -43,7 +43,6 @@ class NetworkModel(Module):
     # background is fixed during task training.
     sigma_bg_current: jax.Array = Module.static()
     mu_bg_current: jax.Array = Module.static()
-    tau_bg: jnp.float32 = Module.static(default=10.5, kw_only=True)
 
     # nS; rows postsynaptic, columns presynaptic.
     connectivity: jax.Array = Module.param()
@@ -51,6 +50,8 @@ class NetworkModel(Module):
     tau_f: jax.Array | None = Module.param()
     tau_d: jax.Array | None = Module.param()
     facilitation_increment: jnp.float32 = Module.param()
+
+    tau_bg: jnp.float32 = Module.static(default=10.5)
 
     exc_reversal_potential: jnp.float32 = Module.static(default=0.0)
     inh_reversal_potential: jnp.float32 = Module.static(default=-70.0)
@@ -135,11 +136,13 @@ class NetworkModel(Module):
 
         nmda_g = jnp.zeros_like(exc_activations)
         nmda_rise, nmda_gate = network.nmda_rise, network.nmda_gate
+        next_rise, next_gate = nmda_rise, nmda_gate
 
         if self.nmda_enabled:
             if nmda_rise is None or nmda_gate is None:
                 raise ValueError("NMDA requires initialized rise and gate states.")
 
+            stp_increment = fired_exc
             if self.stp_enabled:
                 stp_increment = fired_exc * neurons.utilization * neurons.resource
 
