@@ -62,10 +62,14 @@ def train_step(
     constraints: dict[str, dict[str, Sequence[float | jax.Array]]],
     log_fields: Sequence[str] = (),
 ):
-    """Updated parameters and apply constraints provided by experiments."""
+    """Train on one timeline or a leading batch of independently reset timelines.
+
+    For batched inputs, returned measurements and states retain the trial axis.
+    """
     # separate frozen arrays and python metadata
     fixed_arrays, fixed_static = eqx.partition(fixed, eqx.is_array)
-    return _train_step(
+
+    return _update_step(
         params,
         fixed_arrays,
         fixed_static,
@@ -92,10 +96,10 @@ def train_step(
         "log_fields",
     ),
 )
-def _train_step(
+def _update_step(
     params,
     fixed_arrays,
-    fixed,
+    fixed_static,
     initial_network,
     initial_neurons,
     probes,
@@ -109,29 +113,56 @@ def _train_step(
     log_fields,
 ):
     def objective(candidate):
-        model = eqx.combine(candidate, fixed_arrays, fixed)
+        model = eqx.combine(candidate, fixed_arrays, fixed_static)
 
+        # because we have B input timelines and K noise keys for batching
+        # one optimizer step includes B * K simulations
         def simulate_one(noise_key):
-            measurements, final_network, final_neurons = run_simulation(
-                model,
-                initial_network.replace(noise_key=noise_key),
-                initial_neurons,
-                probes,
-                timeline_inputs,
-            )
+            """Runs the entire batch containing all timelines with one noise key."""
+
+            def simulate_trial(values):
+                """Runs on one timeline with one noise key rendering."""
+                inputs, key = values
+                return run_simulation(
+                    model,
+                    initial_network.replace(noise_key=key),
+                    initial_neurons,
+                    probes,
+                    inputs,
+                )
+
+            if timeline_inputs.category_encodings.ndim == 3:
+                # category_encodings: (B, num_timesteps, num_categories)
+                # where B := the number of different input timelines (or sequences)
+                num_timelines = len(timeline_inputs.category_encodings)
+                keys = jax.random.split(noise_key, num_timelines)
+                measurements, final_network, final_neurons = jax.lax.map(
+                    simulate_trial, (timeline_inputs, keys)
+                )
+            # simulate directly if there is a single unbatched timeline
+            else:
+                measurements, final_network, final_neurons = simulate_trial(
+                    (timeline_inputs, noise_key)
+                )
+            # loss function sees all simulated trials rendered this given noise key
             result = loss_function(model, measurements)
             loss, step_log = (
                 result if isinstance(result, tuple) else (result, StepLog())
             )
             return loss, (step_log, measurements, final_network, final_neurons)
 
+        # with B timelines (sequences) and K noise keys run B * K simulations;
+        # the loss function is called K times, each time on a batch containing
+        # B timelines.
         losses, diagnostics = jax.lax.map(simulate_one, noise_keys)
+
         return jnp.mean(losses), diagnostics
 
     (loss, diagnostics), gradients = jax.value_and_grad(objective, has_aux=True)(params)
 
     batched_logs, *batched_states = diagnostics
     step_log = jax.tree.map(lambda value: jnp.mean(value, axis=0), batched_logs)
+    # axis 0: the noise-key axis
     measurements, final_network, final_neurons = jax.tree.map(
         lambda value: value[0], batched_states
     )
@@ -140,7 +171,7 @@ def _train_step(
     params = optax.apply_updates(params, updates)
     params = apply_constraints(params, constraints)
 
-    model = eqx.combine(params, fixed_arrays, fixed)
+    model = eqx.combine(params, fixed_arrays, fixed_static)
     step_log = _log_iteration(
         step_log,
         model,
