@@ -89,7 +89,7 @@ def train_step(
 @partial(
     jax.jit,
     static_argnames=(
-        "fixed",
+        "fixed_static",
         "probes",
         "optimizer",
         "loss_function",
